@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { computeInvestmentScore, computeTradingScore } from "@/lib/scoring";
+import { computeInvestmentScore } from "@/lib/scoring";
 import { explainScore, explainNewsSentiment } from "@/lib/ai/explain";
 import { getStockOverview, getSectorPeers } from "@/lib/dataSources/bharatstock";
 import { getRecentHeadlines } from "@/lib/dataSources/news";
@@ -11,55 +11,47 @@ function today() {
 
 export async function GET(request, { params }) {
   const symbol = params.symbol.toUpperCase();
+  const { searchParams } = new URL(request.url);
+  const forceRefresh = searchParams.get("refresh") === "true";
 
-  // 1. Check if we already have today's score cached - avoids wasting
-  //    API calls on BharatStock's free 50/day limit.
-  const { data: existingScore } = await supabase
-    .from("stock_scores")
-    .select("*")
-    .eq("symbol", symbol)
-    .eq("score_date", today())
-    .maybeSingle();
-
-  if (existingScore) {
-    const { data: analysis } = await supabase
-      .from("stock_analysis")
+  if (!forceRefresh) {
+    const { data: existingScore } = await supabase
+      .from("stock_scores")
       .select("*")
       .eq("symbol", symbol)
-      .eq("analysis_date", today())
+      .eq("score_date", today())
       .maybeSingle();
 
-    return NextResponse.json({ score: existingScore, analysis, cached: true });
+    if (existingScore) {
+      const { data: analysis } = await supabase
+        .from("stock_analysis")
+        .select("*")
+        .eq("symbol", symbol)
+        .eq("analysis_date", today())
+        .maybeSingle();
+
+      return NextResponse.json({ score: existingScore, analysis, cached: true });
+    }
   }
 
-  // 2. No data for today yet - this is either the first time this stock
-  //    has been searched, or the daily cron job hasn't run yet. Fetch
-  //    fresh data now (on-demand refresh, as described in the project plan).
   try {
     const overview = await getStockOverview(symbol);
-    console.log("BHARATSTOCK RAW RESPONSE:", JSON.stringify(overview));
     const peers = await getSectorPeers(overview.sector);
-    console.log("SECTOR PEERS RAW RESPONSE:", JSON.stringify(peers));
-
-    // Build the fundamentals object the scoring engine expects, including
-    // sector median/std for z-score normalization.
     const fundamentals = buildFundamentalsWithSectorStats(overview, peers);
     const investmentScore = computeInvestmentScore(fundamentals);
+    const tradingScore = 50; // filled in by the daily cron job once implemented
 
-    // NOTE: trading score needs technical signals from SmartAPI (candles,
-    // RSI, MACD, moving averages). That fetch + calculation is wired up
-    // in the daily cron job (app/api/cron/refresh/route.js) - for an
-    // on-demand first-time lookup you'd call the same helper here.
-    // Left as a placeholder score until that step is implemented.
-    const tradingScore = 50;
-
-    // Save the stock + score to the database
     await supabase.from("stocks").upsert({
       symbol,
       company_name: overview.company_name,
       sector: overview.sector,
       exchange: overview.exchange,
     });
+
+    if (forceRefresh) {
+      await supabase.from("stock_scores").delete().eq("symbol", symbol).eq("score_date", today());
+      await supabase.from("stock_analysis").delete().eq("symbol", symbol).eq("analysis_date", today());
+    }
 
     const scoreRow = {
       symbol,
@@ -69,15 +61,7 @@ export async function GET(request, { params }) {
     };
     await supabase.from("stock_scores").insert(scoreRow);
 
-    // 3. Generate AI explanations (only happens once per stock per day)
-    console.log("FUNDAMENTALS SENT TO AI:", JSON.stringify(fundamentals));
-    const investmentAnalysis = await explainScore(
-      symbol,
-      "Investment",
-      investmentScore,
-      fundamentals
-    );
-
+    const investmentAnalysis = await explainScore(symbol, "Investment", investmentScore, fundamentals);
     const headlines = await getRecentHeadlines(overview.company_name);
     const newsAnalysis = await explainNewsSentiment(overview.company_name, headlines);
 
@@ -85,8 +69,9 @@ export async function GET(request, { params }) {
       symbol,
       analysis_date: today(),
       investment_analysis: investmentAnalysis,
-      trading_analysis: null, // filled in once trading score logic above is completed
+      trading_analysis: null,
       news_analysis: newsAnalysis,
+      raw_metrics: fundamentals,
     };
     await supabase.from("stock_analysis").insert(analysisRow);
 
@@ -97,9 +82,6 @@ export async function GET(request, { params }) {
 }
 
 function buildFundamentalsWithSectorStats(overview, peers) {
-  // Computes a simple median/std across sector peers for each metric.
-  // BharatStock's screener response shape may differ slightly - adjust
-  // field names here once you see a real response in development.
   const metrics = [
     "pe_ratio",
     "peg_ratio",
@@ -111,7 +93,7 @@ function buildFundamentalsWithSectorStats(overview, peers) {
     "promoter_holding",
   ];
 
-   const result = { ...overview.metrics };
+  const result = { ...overview.metrics };
   for (const metric of metrics) {
     const values = (peers.data || [])
       .map((p) => p[metric])
@@ -119,8 +101,7 @@ function buildFundamentalsWithSectorStats(overview, peers) {
     if (values.length > 0) {
       const median = values.sort((a, b) => a - b)[Math.floor(values.length / 2)];
       const mean = values.reduce((a, b) => a + b, 0) / values.length;
-      const variance =
-        values.reduce((a, b) => a + (b - mean) ** 2, 0) / values.length;
+      const variance = values.reduce((a, b) => a + (b - mean) ** 2, 0) / values.length;
       result[`sector_${metric}_median`] = median;
       result[`sector_${metric}_std`] = Math.sqrt(variance);
     }
