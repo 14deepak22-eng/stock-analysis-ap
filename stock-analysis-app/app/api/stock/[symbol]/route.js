@@ -111,10 +111,10 @@ function buildFundamentalsWithSectorStats(overview, peers) {
     "promoter_holding",
   ];
 
-  const result = { ...overview.metrics };
+   const result = { ...overview.metrics };
   for (const metric of metrics) {
-    const values = (peers.stocks || [])
-      .map((p) => p.metrics?.[metric])
+    const values = (peers.data || [])
+      .map((p) => p[metric])
       .filter((v) => typeof v === "number");
     if (values.length > 0) {
       const median = values.sort((a, b) => a - b)[Math.floor(values.length / 2)];
