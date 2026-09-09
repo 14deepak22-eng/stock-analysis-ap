@@ -2,11 +2,14 @@
 //   1. Explain a score that has ALREADY been computed by lib/scoring.js
 //   2. Read news headlines and summarize sentiment
 // It never invents or calculates a score itself.
-// Uses Google Gemini's free tier (no billing required) - get a key at
-// aistudio.google.com and set it as GEMINI_API_KEY.
+//
+// Reliability strategy: try Gemini first (free tier). If it fails after
+// retries, fall back to Groq (a different free provider) instead of
+// giving up - this avoids single-provider outages showing up to users.
 
 const GEMINI_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent";
+const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 async function callGemini(systemPrompt, userPrompt, attempt = 1) {
   const res = await fetch(`${GEMINI_URL}?key=${process.env.GEMINI_API_KEY}`, {
@@ -21,29 +24,65 @@ async function callGemini(systemPrompt, userPrompt, attempt = 1) {
 
   const data = await res.json();
 
-  // Gemini's free tier occasionally returns 503 "high demand" - this is
-  // temporary, so retry a couple of times with a short pause before
-  // giving up and returning a safe fallback.
   if (data.error) {
     console.log("GEMINI ERROR:", JSON.stringify(data.error));
-    if (data.error.code === 503 && attempt < 3) {
-      await new Promise((r) => setTimeout(r, 2000 * attempt));
+    if (data.error.code === 503 && attempt < 2) {
+      await new Promise((r) => setTimeout(r, 1500 * attempt));
       return callGemini(systemPrompt, userPrompt, attempt + 1);
     }
-    // Give up - return a safe fallback shape instead of a raw error object,
-    // so the rest of the app doesn't break trying to read .summary etc.
-    return {
-      summary: "AI explanation temporarily unavailable.",
-      strengths: [],
-      concerns: [],
-      disclaimer: "This is not investment advice.",
-      sentiment: "Neutral",
-      reasoning: "AI explanation temporarily unavailable.",
-    };
+    return null; // signal failure so caller can try Groq
   }
 
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
-  return JSON.parse(text);
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+async function callGroq(systemPrompt, userPrompt) {
+  const res = await fetch(GROQ_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: "llama-3.1-8b-instant",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      response_format: { type: "json_object" },
+    }),
+  });
+
+  const data = await res.json();
+
+  if (data.error) {
+    console.log("GROQ ERROR:", JSON.stringify(data.error));
+    return null;
+  }
+
+  const text = data?.choices?.[0]?.message?.content ?? "{}";
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+async function callAI(systemPrompt, userPrompt, fallbackShape) {
+  const geminiResult = await callGemini(systemPrompt, userPrompt);
+  if (geminiResult) return geminiResult;
+
+  console.log("Falling back to Groq...");
+  const groqResult = await callGroq(systemPrompt, userPrompt);
+  if (groqResult) return groqResult;
+
+  console.log("Both providers failed, returning fallback.");
+  return fallbackShape;
 }
 
 const EXPLAIN_SYSTEM_PROMPT = `You are a financial analysis assistant. You will be given
@@ -69,7 +108,12 @@ ${JSON.stringify(metrics, null, 2)}
 
 Return the JSON now.`;
 
-  return callGemini(EXPLAIN_SYSTEM_PROMPT, userPrompt);
+  return callAI(EXPLAIN_SYSTEM_PROMPT, userPrompt, {
+    summary: "AI explanation temporarily unavailable.",
+    strengths: [],
+    concerns: [],
+    disclaimer: "This is not investment advice.",
+  });
 }
 
 const NEWS_SYSTEM_PROMPT = `You read recent news headlines about a company and judge
@@ -89,5 +133,8 @@ ${headlineList}
 
 Return the JSON now.`;
 
-  return callGemini(NEWS_SYSTEM_PROMPT, userPrompt);
+  return callAI(NEWS_SYSTEM_PROMPT, userPrompt, {
+    sentiment: "Neutral",
+    reasoning: "AI explanation temporarily unavailable.",
+  });
 }
