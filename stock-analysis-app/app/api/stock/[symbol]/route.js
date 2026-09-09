@@ -39,6 +39,7 @@ export async function GET(request, { params }) {
     const overview = await getStockOverview(symbol);
     console.log("BHARATSTOCK RAW RESPONSE:", JSON.stringify(overview));
     const peers = await getSectorPeers(overview.sector);
+    console.log("SECTOR PEERS RAW RESPONSE:", JSON.stringify(peers));
 
     // Build the fundamentals object the scoring engine expects, including
     // sector median/std for z-score normalization.
