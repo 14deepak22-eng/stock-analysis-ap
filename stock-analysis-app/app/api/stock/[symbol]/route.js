@@ -105,8 +105,8 @@ function buildFundamentalsWithSectorStats(overview, peers) {
     "roe",
     "roce",
     "debt_to_equity",
-    "revenue_growth_3y",
-    "profit_margin",
+    "revenue_growth_yoy",
+    "net_margin",
     "promoter_holding",
   ];
 
