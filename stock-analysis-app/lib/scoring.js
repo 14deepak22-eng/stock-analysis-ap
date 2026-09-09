@@ -32,8 +32,8 @@ const INVESTMENT_WEIGHTS = {
   roe: { weight: 0.15, lowerIsBetter: false },
   roce: { weight: 0.1, lowerIsBetter: false },
   debt_to_equity: { weight: 0.15, lowerIsBetter: true },
-  revenue_growth_3y: { weight: 0.15, lowerIsBetter: false },
-  profit_margin: { weight: 0.1, lowerIsBetter: false },
+   revenue_growth_yoy: { weight: 0.15, lowerIsBetter: false },
+  net_margin: { weight: 0.1, lowerIsBetter: false },
   promoter_holding: { weight: 0.1, lowerIsBetter: false },
 };
 
