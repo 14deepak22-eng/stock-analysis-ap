@@ -2,10 +2,27 @@
 //   1. Explain a score that has ALREADY been computed by lib/scoring.js
 //   2. Read news headlines and summarize sentiment
 // It never invents or calculates a score itself.
+// Uses Google Gemini's free tier (no billing required) - get a key at
+// aistudio.google.com and set it as GEMINI_API_KEY.
 
-import Anthropic from "@anthropic-ai/sdk";
+const GEMINI_URL =
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+async function callGemini(systemPrompt, userPrompt) {
+  const res = await fetch(`${GEMINI_URL}?key=${process.env.GEMINI_API_KEY}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: systemPrompt }] },
+      contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+      generationConfig: { responseMimeType: "application/json" },
+    }),
+  });
+
+  const data = await res.json();
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
+  return JSON.parse(text);
+}
 
 const EXPLAIN_SYSTEM_PROMPT = `You are a financial analysis assistant. You will be given
 structured data about a stock's score and underlying metrics. Write a clear,
@@ -20,10 +37,6 @@ Rules:
 - Output ONLY valid JSON, no other text, matching this shape:
   { "summary": "...", "strengths": ["..."], "concerns": ["..."], "disclaimer": "..." }`;
 
-/**
- * Generates the explanation for either the Investment or Trading score.
- * @param {string} scoreType - "Investment" or "Trading"
- */
 export async function explainScore(symbol, scoreType, score, metrics) {
   const userPrompt = `Stock: ${symbol}
 Score type: ${scoreType}
@@ -34,15 +47,7 @@ ${JSON.stringify(metrics, null, 2)}
 
 Return the JSON now.`;
 
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-5",
-    max_tokens: 500,
-    system: EXPLAIN_SYSTEM_PROMPT,
-    messages: [{ role: "user", content: userPrompt }],
-  });
-
-  const text = response.content.find((b) => b.type === "text")?.text ?? "{}";
-  return JSON.parse(text);
+  return callGemini(EXPLAIN_SYSTEM_PROMPT, userPrompt);
 }
 
 const NEWS_SYSTEM_PROMPT = `You read recent news headlines about a company and judge
@@ -62,13 +67,5 @@ ${headlineList}
 
 Return the JSON now.`;
 
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-5",
-    max_tokens: 300,
-    system: NEWS_SYSTEM_PROMPT,
-    messages: [{ role: "user", content: userPrompt }],
-  });
-
-  const text = response.content.find((b) => b.type === "text")?.text ?? "{}";
-  return JSON.parse(text);
+  return callGemini(NEWS_SYSTEM_PROMPT, userPrompt);
 }
