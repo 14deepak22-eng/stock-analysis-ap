@@ -20,6 +20,7 @@ async function callGemini(systemPrompt, userPrompt) {
   });
 
   const data = await res.json();
+  console.log("GEMINI RAW RESPONSE:", JSON.stringify(data));
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
   return JSON.parse(text);
 }
