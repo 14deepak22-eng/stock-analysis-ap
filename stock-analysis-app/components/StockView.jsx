@@ -128,7 +128,10 @@ export default function StockView({ symbol, initialData }) {
       </div>
 
       <div className="border rounded-2xl p-5 bg-white shadow-sm mb-6">
-        <h2 className="font-semibold text-gray-800 mb-3">Key ratios vs. general benchmarks</h2>
+          <h2 className="font-semibold text-gray-800 mb-1">Key ratios vs. general benchmarks</h2>
+        <p className="text-xs text-gray-400 mb-3">
+          Sourced from BharatStock. Ratio formulas vary by provider (e.g. ROCE definitions differ), so figures may not exactly match other platforms — treat as directional, and cross-check anything decision-critical.
+        </p>
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-gray-400 border-b">
