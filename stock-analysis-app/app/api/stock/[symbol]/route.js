@@ -69,8 +69,8 @@ export async function GET(request, { params }) {
     await supabase.from("stock_scores").insert(scoreRow);
 
     // 3. Generate AI explanations (only happens once per stock per day)
+    console.log("FUNDAMENTALS SENT TO AI:", JSON.stringify(fundamentals));
     const investmentAnalysis = await explainScore(
-      console.log("FUNDAMENTALS SENT TO AI:", JSON.stringify(fundamentals));
       symbol,
       "Investment",
       investmentScore,
