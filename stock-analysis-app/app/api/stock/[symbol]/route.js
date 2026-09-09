@@ -37,6 +37,7 @@ export async function GET(request, { params }) {
   //    fresh data now (on-demand refresh, as described in the project plan).
   try {
     const overview = await getStockOverview(symbol);
+    console.log("BHARATSTOCK RAW RESPONSE:", JSON.stringify(overview));
     const peers = await getSectorPeers(overview.sector);
 
     // Build the fundamentals object the scoring engine expects, including
@@ -69,6 +70,7 @@ export async function GET(request, { params }) {
 
     // 3. Generate AI explanations (only happens once per stock per day)
     const investmentAnalysis = await explainScore(
+      console.log("FUNDAMENTALS SENT TO AI:", JSON.stringify(fundamentals));
       symbol,
       "Investment",
       investmentScore,
