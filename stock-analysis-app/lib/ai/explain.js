@@ -8,7 +8,7 @@
 const GEMINI_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent";
 
-async function callGemini(systemPrompt, userPrompt) {
+async function callGemini(systemPrompt, userPrompt, attempt = 1) {
   const res = await fetch(`${GEMINI_URL}?key=${process.env.GEMINI_API_KEY}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -20,7 +20,28 @@ async function callGemini(systemPrompt, userPrompt) {
   });
 
   const data = await res.json();
-  console.log("GEMINI RAW RESPONSE:", JSON.stringify(data));
+
+  // Gemini's free tier occasionally returns 503 "high demand" - this is
+  // temporary, so retry a couple of times with a short pause before
+  // giving up and returning a safe fallback.
+  if (data.error) {
+    console.log("GEMINI ERROR:", JSON.stringify(data.error));
+    if (data.error.code === 503 && attempt < 3) {
+      await new Promise((r) => setTimeout(r, 2000 * attempt));
+      return callGemini(systemPrompt, userPrompt, attempt + 1);
+    }
+    // Give up - return a safe fallback shape instead of a raw error object,
+    // so the rest of the app doesn't break trying to read .summary etc.
+    return {
+      summary: "AI explanation temporarily unavailable.",
+      strengths: [],
+      concerns: [],
+      disclaimer: "This is not investment advice.",
+      sentiment: "Neutral",
+      reasoning: "AI explanation temporarily unavailable.",
+    };
+  }
+
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
   return JSON.parse(text);
 }
