@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { computeInvestmentScore, computeTradingScore } from "@/lib/scoring";
+import { computeInvestmentScore, computeTradingScore, computeOverallScore } from "@/lib/scoring";
 import { explainScore, explainNewsSentiment } from "@/lib/ai/explain";
 import { getStockOverview, getSectorPeers } from "@/lib/dataSources/bharatstock";
 import { getHistoricalCandles, getSymbolToken } from "@/lib/dataSources/smartapi";
@@ -17,11 +17,15 @@ export async function GET(request, { params }) {
   const forceRefresh = searchParams.get("refresh") === "true";
 
   if (!forceRefresh) {
+    // No date filter here on purpose - once a stock has been fetched,
+    // keep serving that data indefinitely (saves API quota) until the
+    // user explicitly clicks "Refresh data".
     const { data: existingScore } = await supabase
       .from("stock_scores")
       .select("*")
       .eq("symbol", symbol)
-      .eq("score_date", today())
+      .order("score_date", { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (existingScore) {
@@ -29,7 +33,8 @@ export async function GET(request, { params }) {
         .from("stock_analysis")
         .select("*")
         .eq("symbol", symbol)
-        .eq("analysis_date", today())
+        .order("analysis_date", { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       return NextResponse.json({ score: existingScore, analysis, cached: true });
@@ -60,8 +65,6 @@ export async function GET(request, { params }) {
       tradingScore = computeTradingScore(signals);
     } catch (techErr) {
       console.log("TECHNICAL SCORE FAILED:", techErr.message);
-      // Keep tradingScore at 50 fallback if SmartAPI/candles fail - don't
-      // let a technicals problem block the fundamentals from showing.
     }
 
     await supabase.from("stocks").upsert({
@@ -81,6 +84,7 @@ export async function GET(request, { params }) {
       score_date: today(),
       investment_score: investmentScore,
       trading_score: tradingScore,
+      overall_score: computeOverallScore(investmentScore, tradingScore),
     };
     await supabase.from("stock_scores").insert(scoreRow);
 
