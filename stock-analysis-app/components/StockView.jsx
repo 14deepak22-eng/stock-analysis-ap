@@ -73,12 +73,23 @@ export default function StockView({ symbol, initialData }) {
   const { score, analysis } = data;
   const raw = analysis?.raw_metrics || {};
 
-  const holdingsData = [
+  // BharatStock's "public_holding" field appears to overlap with FII/DII
+  // rather than being a clean remainder, which made the pie total over
+  // 100%. Instead, we derive "Other" ourselves as whatever's left after
+  // Promoter + FII + DII, guaranteeing the pie always sums to ~100%.
+  const knownHoldings = [
     { name: "Promoter", value: raw.promoter_holding },
     { name: "FII", value: raw.fii_holding },
     { name: "DII", value: raw.dii_holding },
-    { name: "Public", value: raw.public_holding },
   ].filter((d) => typeof d.value === "number" && d.value > 0);
+
+  const knownTotal = knownHoldings.reduce((sum, d) => sum + d.value, 0);
+  const remainder = Math.max(0, 100 - knownTotal);
+
+  const holdingsData =
+    knownHoldings.length > 0
+      ? [...knownHoldings, ...(remainder > 0.5 ? [{ name: "Other", value: Number(remainder.toFixed(1)) }] : [])]
+      : [];
 
   const returnsData = [
     { period: "1W", value: raw.return_1w },
