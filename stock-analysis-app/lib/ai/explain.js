@@ -1,15 +1,20 @@
-// The AI's only two jobs in this app:
+// The AI's jobs in this app:
 //   1. Explain a score that has ALREADY been computed by lib/scoring.js
 //   2. Read news headlines and summarize sentiment
+//   3. Write a one-paragraph verdict combining all scores
 // It never invents or calculates a score itself.
 //
-// Reliability strategy: try Gemini first (free tier). If it fails after
-// retries, fall back to Groq (a different free provider) instead of
-// giving up - this avoids single-provider outages showing up to users.
+// Reliability strategy: try Gemini first (free tier). If it fails, fall
+// back to Groq (a different free provider) instead of giving up.
 
 const GEMINI_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent";
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+
+function extractJson(text) {
+  const cleaned = text.replace(/```json\s*|```/g, "").trim();
+  return JSON.parse(cleaned);
+}
 
 async function callGemini(systemPrompt, userPrompt, attempt = 1) {
   const res = await fetch(`${GEMINI_URL}?key=${process.env.GEMINI_API_KEY}`, {
@@ -30,12 +35,12 @@ async function callGemini(systemPrompt, userPrompt, attempt = 1) {
       await new Promise((r) => setTimeout(r, 1500 * attempt));
       return callGemini(systemPrompt, userPrompt, attempt + 1);
     }
-    return null; // signal failure so caller can try Groq
+    return null;
   }
 
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
   try {
-    return JSON.parse(text);
+    return extractJson(text);
   } catch {
     return null;
   }
@@ -51,10 +56,9 @@ async function callGroq(systemPrompt, userPrompt) {
     body: JSON.stringify({
       model: "openai/gpt-oss-20b",
       messages: [
-        { role: "system", content: systemPrompt },
+        { role: "system", content: systemPrompt + "\n\nRespond with ONLY the JSON object, no other text, no markdown code fences." },
         { role: "user", content: userPrompt },
       ],
-      response_format: { type: "json_object" },
     }),
   });
 
@@ -67,8 +71,9 @@ async function callGroq(systemPrompt, userPrompt) {
 
   const text = data?.choices?.[0]?.message?.content ?? "{}";
   try {
-    return JSON.parse(text);
-  } catch {
+    return extractJson(text);
+  } catch (e) {
+    console.log("GROQ PARSE FAILED, raw text:", text);
     return null;
   }
 }
@@ -136,5 +141,31 @@ Return the JSON now.`;
   return callAI(NEWS_SYSTEM_PROMPT, userPrompt, {
     sentiment: "Neutral",
     reasoning: "AI explanation temporarily unavailable.",
+  });
+}
+
+const VERDICT_SYSTEM_PROMPT = `You are a financial analysis assistant. You will be given
+a stock's Investment score, Trading score, and news sentiment, along with
+brief context for each. Write ONE short paragraph (2-3 sentences) that
+synthesizes all three into a single plain-language takeaway.
+
+Rules:
+- Only reference the scores and context given. Never invent numbers.
+- If scores disagree (e.g. strong investment score but weak trading score),
+  explicitly call that out - it's the most useful insight for a reader.
+- Never say "buy" or "sell". Use language like "the data suggests" or
+  "this may warrant attention."
+- Output ONLY valid JSON: { "summary": "..." }`;
+
+export async function explainVerdict(symbol, investmentScore, tradingScore, newsSentiment) {
+  const userPrompt = `Stock: ${symbol}
+Investment score: ${investmentScore}/100
+Trading score: ${tradingScore}/100
+News sentiment: ${newsSentiment}
+
+Return the JSON now.`;
+
+  return callAI(VERDICT_SYSTEM_PROMPT, userPrompt, {
+    summary: "Overview temporarily unavailable.",
   });
 }
