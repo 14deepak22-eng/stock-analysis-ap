@@ -80,11 +80,16 @@ let instrumentCache = null;
  * public instrument master file. Cached in memory after first fetch.
  */
 export async function getSymbolToken(symbol) {
-  if (!instrumentCache) {
+   if (!instrumentCache) {
     const res = await fetch(
-      "https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json"
+      "https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json",
+      { headers: { "User-Agent": "Mozilla/5.0" } }
     );
-    instrumentCache = await res.json();
+    const text = await res.text();
+    if (text.trim().startsWith("<") || text.includes("Access den")) {
+      throw new Error(`Instrument file fetch blocked: ${text.slice(0, 100)}`);
+    }
+    instrumentCache = JSON.parse(text);
   }
 
   const match = instrumentCache.find(
