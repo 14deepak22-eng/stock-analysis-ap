@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { computeInvestmentScore } from "@/lib/scoring";
+import { computeInvestmentScore, computeTradingScore } from "@/lib/scoring";
 import { explainScore, explainNewsSentiment } from "@/lib/ai/explain";
 import { getStockOverview, getSectorPeers } from "@/lib/dataSources/bharatstock";
+import { getHistoricalCandles, getSymbolToken } from "@/lib/dataSources/smartapi";
 import { getRecentHeadlines } from "@/lib/dataSources/news";
+import { buildTechnicalSignals, formatForSmartApi } from "@/lib/technicals";
 
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -35,11 +37,32 @@ export async function GET(request, { params }) {
   }
 
   try {
+    // --- Fundamentals (BharatStock) ---
     const overview = await getStockOverview(symbol);
     const peers = await getSectorPeers(overview.sector);
     const fundamentals = buildFundamentalsWithSectorStats(overview, peers);
     const investmentScore = computeInvestmentScore(fundamentals);
-    const tradingScore = 50; // filled in by the daily cron job once implemented
+
+    // --- Technicals (Angel One SmartAPI) ---
+    let tradingScore = 50;
+    let signals = null;
+    try {
+      const { token } = await getSymbolToken(symbol);
+      const toDate = new Date();
+      const fromDate = new Date();
+      fromDate.setDate(fromDate.getDate() - 220);
+      const candleData = await getHistoricalCandles(
+        token,
+        formatForSmartApi(fromDate),
+        formatForSmartApi(toDate)
+      );
+      signals = buildTechnicalSignals(candleData);
+      tradingScore = computeTradingScore(signals);
+    } catch (techErr) {
+      console.log("TECHNICAL SCORE FAILED:", techErr.message);
+      // Keep tradingScore at 50 fallback if SmartAPI/candles fail - don't
+      // let a technicals problem block the fundamentals from showing.
+    }
 
     await supabase.from("stocks").upsert({
       symbol,
@@ -62,6 +85,10 @@ export async function GET(request, { params }) {
     await supabase.from("stock_scores").insert(scoreRow);
 
     const investmentAnalysis = await explainScore(symbol, "Investment", investmentScore, fundamentals);
+    const tradingAnalysis = signals
+      ? await explainScore(symbol, "Trading", tradingScore, signals)
+      : null;
+
     const headlines = await getRecentHeadlines(overview.company_name);
     const newsAnalysis = await explainNewsSentiment(overview.company_name, headlines);
 
@@ -69,9 +96,9 @@ export async function GET(request, { params }) {
       symbol,
       analysis_date: today(),
       investment_analysis: investmentAnalysis,
-      trading_analysis: null,
+      trading_analysis: tradingAnalysis,
       news_analysis: newsAnalysis,
-      raw_metrics: fundamentals,
+      raw_metrics: { ...fundamentals, ...signals },
     };
     await supabase.from("stock_analysis").insert(analysisRow);
 
@@ -83,16 +110,9 @@ export async function GET(request, { params }) {
 
 function buildFundamentalsWithSectorStats(overview, peers) {
   const metrics = [
-    "pe_ratio",
-    "peg_ratio",
-    "roe",
-    "roce",
-    "debt_to_equity",
-    "revenue_growth_yoy",
-    "net_margin",
-    "promoter_holding",
+    "pe_ratio", "peg_ratio", "roe", "roce", "debt_to_equity",
+    "revenue_growth_yoy", "net_margin", "promoter_holding",
   ];
-
   const result = { ...overview.metrics };
   for (const metric of metrics) {
     const values = (peers.data || [])
