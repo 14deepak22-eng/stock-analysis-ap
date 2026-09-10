@@ -5,7 +5,11 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from "recharts";
-import { addToDashboard } from "@/lib/dashboard";
+import { addToDashboard, saveStockSummary } from "@/lib/dashboard";
+import RsiGauge from "@/components/RsiGauge";
+import RatioRadar from "@/components/RatioRadar";
+import SectorComparison from "@/components/SectorComparison";
+import PriceChart from "@/components/PriceChart";
 
 const RATIO_BENCHMARKS = [
   { key: "pe_ratio", label: "P/E Ratio", acceptable: "Lower is generally better (compare to sector)", isGood: (v) => v != null && v > 0 && v < 30 },
@@ -58,7 +62,8 @@ export default function StockView({ symbol, initialData }) {
 
   useEffect(() => {
     addToDashboard(symbol);
-  }, [symbol]);
+    saveStockSummary(symbol, data);
+  }, [symbol, data]);
 
   async function handleRefresh() {
     setRefreshing(true);
@@ -73,10 +78,6 @@ export default function StockView({ symbol, initialData }) {
   const { score, analysis } = data;
   const raw = analysis?.raw_metrics || {};
 
-  // BharatStock's "public_holding" field appears to overlap with FII/DII
-  // rather than being a clean remainder, which made the pie total over
-  // 100%. Instead, we derive "Other" ourselves as whatever's left after
-  // Promoter + FII + DII, guaranteeing the pie always sums to ~100%.
   const knownHoldings = [
     { name: "Promoter", value: raw.promoter_holding },
     { name: "FII", value: raw.fii_holding },
@@ -128,6 +129,13 @@ export default function StockView({ symbol, initialData }) {
         Data as of {score?.score_date ?? "unknown"} · {data.cached ? "saved data — click Refresh for the latest" : "just fetched"} — not investment advice.
       </p>
 
+      {analysis?.verdict?.summary && (
+        <div className="border rounded-2xl p-5 mb-6 bg-gradient-to-r from-indigo-50 to-sky-50 border-indigo-200">
+          <h2 className="font-semibold text-gray-800 mb-1">Overview</h2>
+          <p className="text-sm text-gray-700">{analysis.verdict.summary}</p>
+        </div>
+      )}
+
       <div className="grid gap-4 mb-6">
         <ScoreBadge title="Investment score" score={score?.investment_score} analysis={analysis?.investment_analysis} accent="border-indigo-500" />
         <ScoreBadge title="Trading score" score={score?.trading_score} analysis={analysis?.trading_analysis} accent="border-sky-500" />
@@ -177,6 +185,21 @@ export default function StockView({ symbol, initialData }) {
           </tbody>
         </table>
       </div>
+
+      <div className="mb-6">
+        <PriceChart priceHistory={raw.price_history} />
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4 mb-6">
+        <RatioRadar raw={raw} />
+        <SectorComparison raw={raw} />
+      </div>
+
+      {raw.rsi != null && (
+        <div className="border rounded-2xl p-5 bg-white shadow-sm mb-6 flex justify-center">
+          <RsiGauge rsi={raw.rsi} />
+        </div>
+      )}
 
       <div className="grid md:grid-cols-2 gap-4 mb-6">
         {holdingsData.length > 0 && (
