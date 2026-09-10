@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { computeInvestmentScore, computeTradingScore, computeOverallScore } from "@/lib/scoring";
-import { explainScore, explainNewsSentiment } from "@/lib/ai/explain";
+import { explainScore, explainNewsSentiment, explainVerdict } from "@/lib/ai/explain";
 import { getStockOverview, getSectorPeers } from "@/lib/dataSources/bharatstock";
 import { getHistoricalCandles, getSymbolToken } from "@/lib/dataSources/smartapi";
 import { getRecentHeadlines } from "@/lib/dataSources/news";
-import { buildTechnicalSignals, formatForSmartApi } from "@/lib/technicals";
+import { buildTechnicalSignals, buildPriceHistory, formatForSmartApi } from "@/lib/technicals";
 
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -17,9 +17,6 @@ export async function GET(request, { params }) {
   const forceRefresh = searchParams.get("refresh") === "true";
 
   if (!forceRefresh) {
-    // No date filter here on purpose - once a stock has been fetched,
-    // keep serving that data indefinitely (saves API quota) until the
-    // user explicitly clicks "Refresh data".
     const { data: existingScore } = await supabase
       .from("stock_scores")
       .select("*")
@@ -51,6 +48,7 @@ export async function GET(request, { params }) {
     // --- Technicals (Angel One SmartAPI) ---
     let tradingScore = 50;
     let signals = null;
+    let priceHistory = [];
     try {
       const { token } = await getSymbolToken(symbol);
       const toDate = new Date();
@@ -63,6 +61,7 @@ export async function GET(request, { params }) {
       );
       signals = buildTechnicalSignals(candleData);
       tradingScore = computeTradingScore(signals);
+      priceHistory = buildPriceHistory(candleData);
     } catch (techErr) {
       console.log("TECHNICAL SCORE FAILED:", techErr.message);
     }
@@ -95,6 +94,12 @@ export async function GET(request, { params }) {
 
     const headlines = await getRecentHeadlines(overview.company_name);
     const newsAnalysis = await explainNewsSentiment(overview.company_name, headlines);
+    const verdict = await explainVerdict(
+      symbol,
+      investmentScore,
+      tradingScore,
+      newsAnalysis?.sentiment ?? "Unknown"
+    );
 
     const analysisRow = {
       symbol,
@@ -102,12 +107,14 @@ export async function GET(request, { params }) {
       investment_analysis: investmentAnalysis,
       trading_analysis: tradingAnalysis,
       news_analysis: newsAnalysis,
-      raw_metrics: { ...fundamentals, ...signals },
+      verdict,
+      raw_metrics: { ...fundamentals, ...signals, price_history: priceHistory },
     };
     await supabase.from("stock_analysis").insert(analysisRow);
 
     return NextResponse.json({ score: scoreRow, analysis: analysisRow, cached: false });
   } catch (err) {
+    console.log("STOCK ROUTE FAILED:", err.message);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
