@@ -18,6 +18,30 @@ export function buildTechnicalSignals(candleData) {
   return { price, ma50, ma200, rsi, macdLine, macdSignal, recentVolume, avgVolume, priceRising };
 }
 
+/**
+ * Builds a trimmed daily price series with rolling 50/200-day averages,
+ * for the price chart. Keeps only the last ~150 points so the payload
+ * stays small.
+ */
+export function buildPriceHistory(candleData) {
+  const candles = candleData?.data ?? [];
+  const closes = candles.map((c) => c[4]);
+  const dates = candles.map((c) => c[0]?.slice(0, 10));
+
+  const series = closes.map((close, i) => {
+    const ma50Slice = closes.slice(Math.max(0, i - 49), i + 1);
+    const ma200Slice = closes.slice(Math.max(0, i - 199), i + 1);
+    return {
+      date: dates[i],
+      close: Number(close?.toFixed(2)),
+      ma50: ma50Slice.length >= 50 ? Number(average(ma50Slice).toFixed(2)) : null,
+      ma200: ma200Slice.length >= 200 ? Number(average(ma200Slice).toFixed(2)) : null,
+    };
+  });
+
+  return series.slice(-150);
+}
+
 function average(arr) {
   const clean = arr.filter((v) => typeof v === "number");
   if (!clean.length) return null;
