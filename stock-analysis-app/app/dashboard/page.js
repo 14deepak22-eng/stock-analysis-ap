@@ -11,9 +11,15 @@ export default function Dashboard() {
   useEffect(() => {
     const symbols = getDashboardStocks();
     setStocks(symbols);
-    Promise.all(
-      symbols.map((s) => fetch(`/api/stock/${s}`).then((r) => r.json()).then((d) => [s, d]))
-    ).then((results) => {
+       (async () => {
+      const results = [];
+      for (const s of symbols) {
+        const d = await fetch(`/api/stock/${s}`).then((r) => r.json());
+        results.push([s, d]);
+        await new Promise((r) => setTimeout(r, 800)); // space out requests
+      }
+      return results;
+    })().then((results) => {
       const map = {};
       results.forEach(([s, d]) => (map[s] = d));
       setScores(map);
