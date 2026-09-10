@@ -80,18 +80,28 @@ let instrumentCache = null;
  * public instrument master file. Cached in memory after first fetch.
  */
 export async function getSymbolToken(symbol) {
-   if (!instrumentCache) {
+    if (!instrumentCache) {
     const res = await fetch(
       "https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json",
-      { headers: { "User-Agent": "Mozilla/5.0" } }
+      {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+          "Accept": "application/json,text/plain,*/*",
+        },
+      }
     );
     const text = await res.text();
     if (text.trim().startsWith("<") || text.includes("Access den")) {
-      throw new Error(`Instrument file fetch blocked: ${text.slice(0, 100)}`);
+      console.log(`INSTRUMENT FETCH BLOCKED - status ${res.status}, body: ${text.slice(0, 300)}`);
+      throw new Error(`Instrument file fetch blocked (status ${res.status})`);
     }
-    instrumentCache = JSON.parse(text);
+    try {
+      instrumentCache = JSON.parse(text);
+    } catch {
+      console.log(`INSTRUMENT FETCH - unexpected non-JSON body: ${text.slice(0, 300)}`);
+      throw new Error("Instrument file returned unexpected format");
+    }
   }
-
   const match = instrumentCache.find(
     (i) => i.symbol === `${symbol}-EQ` && i.exch_seg === "NSE"
   );
