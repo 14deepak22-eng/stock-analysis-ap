@@ -96,7 +96,14 @@ export default function StockView({ symbol, initialData }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <h1 className="text-2xl font-bold">{symbol}</h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-2xl font-bold">{symbol}</h1>
+          {score?.overall_score != null && (
+            <span className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-sky-500 text-white px-4 py-1 rounded-full text-sm font-semibold">
+              Overall {score.overall_score}
+            </span>
+          )}
+        </div>
         <button
           onClick={handleRefresh}
           disabled={refreshing}
@@ -107,7 +114,7 @@ export default function StockView({ symbol, initialData }) {
         </button>
       </div>
       <p className="text-xs text-gray-400 mb-6">
-        Data as of {score?.score_date ?? "unknown"} · {data.cached ? "cached" : "just fetched"} — not investment advice.
+        Data as of {score?.score_date ?? "unknown"} · {data.cached ? "saved data — click Refresh for the latest" : "just fetched"} — not investment advice.
       </p>
 
       <div className="grid gap-4 mb-6">
@@ -128,7 +135,7 @@ export default function StockView({ symbol, initialData }) {
       </div>
 
       <div className="border rounded-2xl p-5 bg-white shadow-sm mb-6">
-          <h2 className="font-semibold text-gray-800 mb-1">Key ratios vs. general benchmarks</h2>
+        <h2 className="font-semibold text-gray-800 mb-1">Key ratios vs. general benchmarks</h2>
         <p className="text-xs text-gray-400 mb-3">
           Sourced from BharatStock. Ratio formulas vary by provider (e.g. ROCE definitions differ), so figures may not exactly match other platforms — treat as directional, and cross-check anything decision-critical.
         </p>
