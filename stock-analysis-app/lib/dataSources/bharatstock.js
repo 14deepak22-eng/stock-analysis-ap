@@ -18,17 +18,8 @@ async function bharatstockRequest(path) {
  * Fetches company info + latest computed ratios for one symbol.
  * e.g. getStockOverview("RELIANCE")
  */
-const sectorPeerCache = new Map();
-const CACHE_TTL_MS = 1000 * 60 * 60 * 12; // 12 hours
-
-export async function getSectorPeers(sector) {
-  const cached = sectorPeerCache.get(sector);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-    return cached.data;
-  }
-  const data = await bharatstockRequest(`/screener?sector=${encodeURIComponent(sector)}`);
-  sectorPeerCache.set(sector, { data, timestamp: Date.now() });
-  return data;
+export async function getStockOverview(symbol) {
+  return bharatstockRequest(`/stocks/${symbol}`);
 }
 
 /**
@@ -41,7 +32,19 @@ export async function getFinancials(symbol) {
 /**
  * Fetches sector peer list with the same metrics, used to compute
  * sector median/std for the Investment score's z-score normalization.
+ * Cached in-memory per sector for 12 hours to avoid re-fetching the same
+ * ~50-stock peer list on every search within a sector (e.g. multiple IT
+ * stocks all share the same peer list).
  */
+const sectorPeerCache = new Map();
+const CACHE_TTL_MS = 1000 * 60 * 60 * 12; // 12 hours
+
 export async function getSectorPeers(sector) {
-  return bharatstockRequest(`/screener?sector=${encodeURIComponent(sector)}`);
+  const cached = sectorPeerCache.get(sector);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    return cached.data;
+  }
+  const data = await bharatstockRequest(`/screener?sector=${encodeURIComponent(sector)}`);
+  sectorPeerCache.set(sector, { data, timestamp: Date.now() });
+  return data;
 }
