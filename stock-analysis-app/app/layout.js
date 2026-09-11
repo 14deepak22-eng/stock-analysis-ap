@@ -1,4 +1,5 @@
 import "./globals.css";
+import AuthStatus from "@/components/AuthStatus";
 
 export const metadata = {
   title: "StockScope",
@@ -13,10 +14,10 @@ export default function RootLayout({ children }) {
           <a href="/" className="font-bold text-lg bg-gradient-to-r from-indigo-600 to-sky-500 bg-clip-text text-transparent">
             StockScope
           </a>
-          <nav className="flex gap-5 text-sm font-medium text-gray-600">
+          <nav className="flex items-center gap-5 text-sm font-medium text-gray-600">
             <a href="/dashboard" className="hover:text-indigo-600">Dashboard</a>
             <a href="/screener" className="hover:text-indigo-600">Screener</a>
-            <a href="/login" className="hover:text-indigo-600">Login</a>
+            <AuthStatus />
           </nav>
         </header>
         <main className="max-w-5xl mx-auto px-6 py-8">{children}</main>
