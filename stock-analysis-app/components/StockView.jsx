@@ -5,7 +5,7 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from "recharts";
-import { addToDashboard, saveStockSummary } from "@/lib/dashboard";
+import { addToDashboard, saveStockSummary, saveFullStockData } from "@/lib/dashboard";
 import RsiGauge from "@/components/RsiGauge";
 import RatioRadar from "@/components/RatioRadar";
 import SectorComparison from "@/components/SectorComparison";
@@ -63,6 +63,7 @@ export default function StockView({ symbol, initialData }) {
   useEffect(() => {
     addToDashboard(symbol);
     saveStockSummary(symbol, data);
+    saveFullStockData(symbol, data);
   }, [symbol, data]);
 
   async function handleRefresh() {
