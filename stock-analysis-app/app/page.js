@@ -20,9 +20,12 @@ export default function Home() {
     setShowSuggestions(false);
   }
 
+  const [submitting, setSubmitting] = useState(false);
+
   function handleSearch(e) {
     e.preventDefault();
-    if (!query.trim()) return;
+    if (!query.trim() || submitting) return;
+    setSubmitting(true);
     router.push(`/stock/${query.trim().toUpperCase()}`);
   }
 
@@ -66,9 +69,10 @@ export default function Home() {
         </div>
         <button
           type="submit"
-          className="bg-indigo-600 hover:bg-indigo-700 transition text-white px-6 py-3 rounded-xl w-72 font-medium shadow-sm"
+          disabled={submitting}
+          className="bg-indigo-600 hover:bg-indigo-700 transition text-white px-6 py-3 rounded-xl w-72 font-medium shadow-sm disabled:opacity-50"
         >
-          Search
+          {submitting ? "Searching…" : "Search"}
         </button>
       </form>
     </div>
