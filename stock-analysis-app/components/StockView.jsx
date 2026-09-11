@@ -6,6 +6,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from "recharts";
 import { addToDashboard, saveStockSummary, saveFullStockData } from "@/lib/dashboard";
+import { addToUserDashboard } from "@/lib/userDashboard";
 import RsiGauge from "@/components/RsiGauge";
 import RatioRadar from "@/components/RatioRadar";
 import SectorComparison from "@/components/SectorComparison";
@@ -64,6 +65,7 @@ export default function StockView({ symbol, initialData }) {
     addToDashboard(symbol);
     saveStockSummary(symbol, data);
     saveFullStockData(symbol, data);
+    addToUserDashboard(symbol); // no-op if not logged in
   }, [symbol, data]);
 
   async function handleRefresh() {
