@@ -18,8 +18,17 @@ async function bharatstockRequest(path) {
  * Fetches company info + latest computed ratios for one symbol.
  * e.g. getStockOverview("RELIANCE")
  */
-export async function getStockOverview(symbol) {
-  return bharatstockRequest(`/stocks/${symbol}`);
+const sectorPeerCache = new Map();
+const CACHE_TTL_MS = 1000 * 60 * 60 * 12; // 12 hours
+
+export async function getSectorPeers(sector) {
+  const cached = sectorPeerCache.get(sector);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    return cached.data;
+  }
+  const data = await bharatstockRequest(`/screener?sector=${encodeURIComponent(sector)}`);
+  sectorPeerCache.set(sector, { data, timestamp: Date.now() });
+  return data;
 }
 
 /**
