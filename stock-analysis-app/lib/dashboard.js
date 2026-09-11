@@ -1,5 +1,6 @@
 const LIST_KEY = "stockscope_dashboard_stocks";
 const SUMMARY_PREFIX = "stockscope_summary_";
+const FULL_PREFIX = "stockscope_full_";
 
 export function getDashboardStocks() {
   if (typeof window === "undefined") return [];
@@ -25,13 +26,9 @@ export function removeFromDashboard(symbol) {
     JSON.stringify(getDashboardStocks().filter((s) => s !== symbol))
   );
   localStorage.removeItem(SUMMARY_PREFIX + symbol);
+  localStorage.removeItem(FULL_PREFIX + symbol);
 }
 
-/**
- * Saves a lightweight snapshot of a stock's scores so the dashboard can
- * render instantly from local data, with zero network calls, instead of
- * re-fetching every saved stock on every dashboard visit.
- */
 export function saveStockSummary(symbol, data) {
   if (typeof window === "undefined") return;
   const summary = {
@@ -48,6 +45,29 @@ export function getStockSummary(symbol) {
   if (typeof window === "undefined") return null;
   try {
     return JSON.parse(localStorage.getItem(SUMMARY_PREFIX + symbol) || "null");
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Saves the FULL stock page data (scores + analysis + raw_metrics) so
+ * revisiting a stock from the dashboard can render instantly from local
+ * storage, with zero network calls and zero loading time.
+ */
+export function saveFullStockData(symbol, data) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(FULL_PREFIX + symbol, JSON.stringify(data));
+  } catch {
+    // Storage full or data too large - safe to ignore, falls back to fetching.
+  }
+}
+
+export function getFullStockData(symbol) {
+  if (typeof window === "undefined") return null;
+  try {
+    return JSON.parse(localStorage.getItem(FULL_PREFIX + symbol) || "null");
   } catch {
     return null;
   }
