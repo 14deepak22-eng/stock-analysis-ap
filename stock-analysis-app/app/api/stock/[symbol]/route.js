@@ -38,33 +38,39 @@ export async function GET(request, { params }) {
     }
   }
 
-  try {
-    // --- Fundamentals (BharatStock) ---
+    try {
     const overview = await getStockOverview(symbol);
-    const peers = await getSectorPeers(overview.sector);
+
+    // These two don't depend on each other - run them at the same time
+    // instead of waiting for one before starting the other.
+    const [peers, technicalResult] = await Promise.all([
+      getSectorPeers(overview.sector),
+      (async () => {
+        try {
+          const { token } = await getSymbolToken(symbol);
+          const toDate = new Date();
+          const fromDate = new Date();
+          fromDate.setDate(fromDate.getDate() - 220);
+          const candleData = await getHistoricalCandles(
+            token,
+            formatForSmartApi(fromDate),
+            formatForSmartApi(toDate)
+          );
+          return {
+            signals: buildTechnicalSignals(candleData),
+            priceHistory: buildPriceHistory(candleData),
+          };
+        } catch (techErr) {
+          console.log("TECHNICAL SCORE FAILED:", techErr.message);
+          return { signals: null, priceHistory: [] };
+        }
+      })(),
+    ]);
+
     const fundamentals = buildFundamentalsWithSectorStats(overview, peers);
     const investmentScore = computeInvestmentScore(fundamentals);
-
-    // --- Technicals (Angel One SmartAPI) ---
-    let tradingScore = 50;
-    let signals = null;
-    let priceHistory = [];
-    try {
-      const { token } = await getSymbolToken(symbol);
-      const toDate = new Date();
-      const fromDate = new Date();
-      fromDate.setDate(fromDate.getDate() - 220);
-      const candleData = await getHistoricalCandles(
-        token,
-        formatForSmartApi(fromDate),
-        formatForSmartApi(toDate)
-      );
-      signals = buildTechnicalSignals(candleData);
-      tradingScore = computeTradingScore(signals);
-      priceHistory = buildPriceHistory(candleData);
-    } catch (techErr) {
-      console.log("TECHNICAL SCORE FAILED:", techErr.message);
-    }
+    const { signals, priceHistory } = technicalResult;
+    const tradingScore = signals ? computeTradingScore(signals) : 50;
 
     await supabase.from("stocks").upsert({
       symbol,
@@ -87,13 +93,17 @@ export async function GET(request, { params }) {
     };
     await supabase.from("stock_scores").insert(scoreRow);
 
-    const investmentAnalysis = await explainScore(symbol, "Investment", investmentScore, fundamentals);
-    const tradingAnalysis = signals
-      ? await explainScore(symbol, "Trading", tradingScore, signals)
-      : null;
+    // These three AI/news calls are all independent - run them together
+    // instead of one after another. This is the biggest time saver.
+    const [investmentAnalysis, tradingAnalysis, newsAnalysis] = await Promise.all([
+      explainScore(symbol, "Investment", investmentScore, fundamentals),
+      signals ? explainScore(symbol, "Trading", tradingScore, signals) : Promise.resolve(null),
+      getRecentHeadlines(overview.company_name).then((headlines) =>
+        explainNewsSentiment(overview.company_name, headlines)
+      ),
+    ]);
 
-    const headlines = await getRecentHeadlines(overview.company_name);
-    const newsAnalysis = await explainNewsSentiment(overview.company_name, headlines);
+    // Verdict needs the other three results, so it runs last.
     const verdict = await explainVerdict(
       symbol,
       investmentScore,
