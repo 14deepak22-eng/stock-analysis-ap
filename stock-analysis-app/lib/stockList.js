@@ -311,6 +311,27 @@ const SECTOR_MAP = {
 export const sectorNames = Object.keys(SECTOR_MAP);
 
 export function getStocksBySector(sector) {
+  export const sectorIcons = {
+  "Information Technology": "💻",
+  "Banking": "🏦",
+  "Financial Services": "💰",
+  "Oil, Gas & Energy": "⛽",
+  "Power & Utilities": "⚡",
+  "Metals & Mining": "⛏️",
+  "Cement & Construction": "🏗️",
+  "Infrastructure & Capital Goods": "🏭",
+  "Automobile": "🚗",
+  "Pharma & Healthcare": "💊",
+  "FMCG": "🛒",
+  "Retail & Consumer Durables": "🛍️",
+  "Telecom": "📡",
+  "New-age Tech & Internet": "🚀",
+  "Chemicals": "🧪",
+  "Real Estate": "🏠",
+  "Media & Entertainment": "🎬",
+  "Textiles": "🧵",
+  "Aviation & Others": "✈️",
+};
   const symbols = SECTOR_MAP[sector] || [];
   return symbols
     .map((symbol) => stockList.find((s) => s.symbol === symbol))
