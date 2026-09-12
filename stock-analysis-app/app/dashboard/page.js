@@ -4,11 +4,21 @@ import { useEffect, useState } from "react";
 import { getDashboardStocks, getStockSummary, removeFromDashboard } from "@/lib/dashboard";
 import { getUserDashboardWithScores, removeFromUserDashboard, getCurrentUser } from "@/lib/userDashboard";
 
+function scoreColor(value) {
+  if (value == null || typeof value !== "number") return "text-gray-400";
+  if (value >= 65) return "text-green-600";
+  if (value >= 40) return "text-amber-600";
+  return "text-red-600";
+}
+
 function ScorePill({ label, value }) {
+  const isNumber = typeof value === "number";
   return (
     <div className="text-center">
       <p className="text-xs text-gray-400">{label}</p>
-      <p className="font-bold text-lg text-gray-800">{value ?? "-"}</p>
+      <p className={`font-bold text-lg ${isNumber ? scoreColor(value) : "text-gray-700"}`}>
+        {value ?? "-"}
+      </p>
     </div>
   );
 }
