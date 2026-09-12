@@ -14,8 +14,7 @@ export default function RootLayout({ children }) {
           <a href="/" className="font-bold text-lg bg-gradient-to-r from-indigo-600 to-sky-500 bg-clip-text text-transparent">
             StockScope
           </a>
-          <nav className="flex items-center gap-5 text-sm font-medium text-gray-600">
-            <a href="/sectors" className="hover:text-indigo-600">Sectors</a>
+                   <nav className="flex items-center gap-5 text-sm font-medium text-gray-600">
             <a href="/dashboard" className="hover:text-indigo-600">Dashboard</a>
             <a href="/screener" className="hover:text-indigo-600">Screener</a>
             <AuthStatus />
