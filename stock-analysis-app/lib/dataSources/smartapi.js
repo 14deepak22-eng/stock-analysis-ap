@@ -8,7 +8,14 @@ import { authenticator } from "otplib";
 
 const BASE_URL = "https://apiconnect.angelone.in";
 
+let cachedToken = null;
+let tokenExpiry = 0;
+
 async function login() {
+  if (cachedToken && Date.now() < tokenExpiry) {
+    return cachedToken;
+  }
+
   const totp = authenticator.generate(process.env.ANGEL_ONE_TOTP_SECRET);
 
   const res = await fetch(`${BASE_URL}/rest/auth/angelbroking/user/v1/loginByPassword`, {
@@ -33,7 +40,9 @@ async function login() {
   if (!data.status) {
     throw new Error(`Angel One login failed: ${data.message}`);
   }
-  return data.data.jwtToken;
+  cachedToken = data.data.jwtToken;
+  tokenExpiry = Date.now() + 1000 * 60 * 60 * 6; // reuse for 6 hours
+  return cachedToken;
 }
 
 async function smartApiRequest(path, body) {
