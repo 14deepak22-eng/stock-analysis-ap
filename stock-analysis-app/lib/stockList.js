@@ -311,7 +311,13 @@ const SECTOR_MAP = {
 export const sectorNames = Object.keys(SECTOR_MAP);
 
 export function getStocksBySector(sector) {
-  export const sectorIcons = {
+  const symbols = SECTOR_MAP[sector] || [];
+  return symbols
+    .map((symbol) => stockList.find((s) => s.symbol === symbol))
+    .filter(Boolean);
+}
+
+export const sectorIcons = {
   "Information Technology": "💻",
   "Banking": "🏦",
   "Financial Services": "💰",
@@ -332,8 +338,3 @@ export function getStocksBySector(sector) {
   "Textiles": "🧵",
   "Aviation & Others": "✈️",
 };
-  const symbols = SECTOR_MAP[sector] || [];
-  return symbols
-    .map((symbol) => stockList.find((s) => s.symbol === symbol))
-    .filter(Boolean);
-}
