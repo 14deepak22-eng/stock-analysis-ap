@@ -25,27 +25,42 @@ const RATIO_BENCHMARKS = [
 
 const PIE_COLORS = ["#4f46e5", "#0ea5e9", "#f59e0b", "#94a3b8"];
 
-function ScoreBadge({ title, score, analysis, accent }) {
+function scoreTier(score) {
+  if (score == null) return "mid";
+  if (score >= 65) return "good";
+  if (score >= 40) return "mid";
+  return "bad";
+}
+
+function ScoreBadge({ title, score, analysis, icon }) {
+  const tier = scoreTier(score);
+  const badgeClass = tier === "good" ? "score-badge-good" : tier === "bad" ? "score-badge-bad" : "score-badge-mid";
+  const textClass = tier === "good" ? "score-good" : tier === "bad" ? "score-bad" : "score-mid";
+
   return (
-    <div className={`border rounded-2xl p-5 bg-white shadow-sm border-t-4 ${accent}`}>
-      <div className="flex items-baseline justify-between mb-2">
-        <h2 className="font-semibold text-gray-800">{title}</h2>
-        <span className="text-3xl font-bold">{score ?? "-"}</span>
+    <div className="card card-hover p-5 pop-in">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="font-semibold text-gray-800 flex items-center gap-2">
+          <span>{icon}</span> {title}
+        </h2>
+        <span className={`${badgeClass} text-white text-2xl font-bold w-16 h-16 rounded-full flex items-center justify-center shadow-lg`}>
+          {score ?? "-"}
+        </span>
       </div>
       {analysis ? (
         <>
           <p className="text-sm text-gray-700 mb-3">{analysis.summary}</p>
           <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <p className="font-medium text-green-700 mb-1">Strengths</p>
-              <ul className="list-disc list-inside text-gray-600 space-y-0.5">
-                {(analysis.strengths || []).map((s, i) => <li key={i}>{s}</li>)}
+            <div className="bg-green-50 rounded-xl p-3">
+              <p className="font-medium text-green-700 mb-1.5">✓ Strengths</p>
+              <ul className="text-gray-600 space-y-1">
+                {(analysis.strengths || []).map((s, i) => <li key={i}>• {s}</li>)}
               </ul>
             </div>
-            <div>
-              <p className="font-medium text-amber-700 mb-1">Concerns</p>
-              <ul className="list-disc list-inside text-gray-600 space-y-0.5">
-                {(analysis.concerns || []).map((c, i) => <li key={i}>{c}</li>)}
+            <div className="bg-amber-50 rounded-xl p-3">
+              <p className="font-medium text-amber-700 mb-1.5">⚠ Concerns</p>
+              <ul className="text-gray-600 space-y-1">
+                {(analysis.concerns || []).map((c, i) => <li key={i}>• {c}</li>)}
               </ul>
             </div>
           </div>
@@ -65,7 +80,7 @@ export default function StockView({ symbol, initialData }) {
     addToDashboard(symbol);
     saveStockSummary(symbol, data);
     saveFullStockData(symbol, data);
-    addToUserDashboard(symbol); // no-op if not logged in
+    addToUserDashboard(symbol);
   }, [symbol, data]);
 
   async function handleRefresh() {
@@ -80,6 +95,7 @@ export default function StockView({ symbol, initialData }) {
 
   const { score, analysis } = data;
   const raw = analysis?.raw_metrics || {};
+  const overallTier = scoreTier(score?.overall_score);
 
   const knownHoldings = [
     { name: "Promoter", value: raw.promoter_holding },
@@ -108,24 +124,29 @@ export default function StockView({ symbol, initialData }) {
   const ma50 = raw.price && raw.price_vs_50dma_pct != null ? raw.price / (1 + raw.price_vs_50dma_pct / 100) : null;
   const ma200 = raw.price && raw.price_vs_200dma_pct != null ? raw.price / (1 + raw.price_vs_200dma_pct / 100) : null;
 
+  const newsTier = analysis?.news_analysis?.sentiment === "Positive" ? "positive-pill"
+    : analysis?.news_analysis?.sentiment === "Negative" ? "negative-pill" : "neutral-pill";
+  const newsEmoji = analysis?.news_analysis?.sentiment === "Positive" ? "📈"
+    : analysis?.news_analysis?.sentiment === "Negative" ? "📉" : "➖";
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-1">
-        <div className="flex items-center gap-4">
-          <h1 className="text-2xl font-bold">{symbol}</h1>
+      <div className="flex items-center justify-between mb-1 flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <h1 className="text-3xl font-bold">{symbol}</h1>
           {score?.overall_score != null && (
-            <span className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-sky-500 text-white px-4 py-1 rounded-full text-sm font-semibold">
-              Overall {score.overall_score}
+            <span className={`${overallTier === "good" ? "score-badge-good" : overallTier === "bad" ? "score-badge-bad" : "score-badge-mid"} text-white px-4 py-1.5 rounded-full text-sm font-bold shadow-lg pop-in`}>
+              ⭐ Overall {score.overall_score}
             </span>
           )}
         </div>
         <button
           onClick={handleRefresh}
           disabled={refreshing}
-          className="text-sm border border-indigo-200 text-indigo-700 hover:bg-indigo-50 px-3 py-1.5 rounded-lg disabled:opacity-50 flex items-center gap-2"
+          className="text-sm border-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-400 px-4 py-2 rounded-xl disabled:opacity-50 flex items-center gap-2 transition"
         >
           {refreshing && <span className="w-3.5 h-3.5 border-2 border-indigo-300 border-t-indigo-700 rounded-full animate-spin" />}
-          {refreshing ? "Refreshing…" : "Refresh data"}
+          {refreshing ? "Refreshing…" : "🔄 Refresh data"}
         </button>
       </div>
       <p className="text-xs text-gray-400 mb-6">
@@ -133,31 +154,28 @@ export default function StockView({ symbol, initialData }) {
       </p>
 
       {analysis?.verdict?.summary && (
-        <div className="border rounded-2xl p-5 mb-6 bg-gradient-to-r from-indigo-50 to-sky-50 border-indigo-200">
-          <h2 className="font-semibold text-gray-800 mb-1">Overview</h2>
-          <p className="text-sm text-gray-700">{analysis.verdict.summary}</p>
+        <div className="rounded-2xl p-5 mb-6 bg-gradient-to-r from-indigo-500 to-sky-500 text-white shadow-lg pop-in">
+          <h2 className="font-semibold mb-1 flex items-center gap-2">💡 Overview</h2>
+          <p className="text-sm text-white/90">{analysis.verdict.summary}</p>
         </div>
       )}
 
       <div className="grid gap-4 mb-6">
-        <ScoreBadge title="Investment score" score={score?.investment_score} analysis={analysis?.investment_analysis} accent="border-indigo-500" />
-        <ScoreBadge title="Trading score" score={score?.trading_score} analysis={analysis?.trading_analysis} accent="border-sky-500" />
-        <div className="border rounded-2xl p-5 bg-white shadow-sm border-t-4 border-amber-500">
-          <h2 className="font-semibold text-gray-800 mb-2">News sentiment</h2>
-          <p className="text-sm">
-            <span className={`font-semibold ${
-              analysis?.news_analysis?.sentiment === "Positive" ? "text-green-600" :
-              analysis?.news_analysis?.sentiment === "Negative" ? "text-red-600" : "text-gray-500"
-            }`}>
-              {analysis?.news_analysis?.sentiment ?? "Unknown"}
-            </span>
-            {" - "}{analysis?.news_analysis?.reasoning}
-          </p>
+        <ScoreBadge title="Investment score" score={score?.investment_score} analysis={analysis?.investment_analysis} icon="🏛️" />
+        <ScoreBadge title="Trading score" score={score?.trading_score} analysis={analysis?.trading_analysis} icon="📊" />
+        <div className={`card p-5 flex items-center justify-between stagger-item`}>
+          <div>
+            <h2 className="font-semibold text-gray-800 mb-1">📰 News sentiment</h2>
+            <p className="text-sm text-gray-600">{analysis?.news_analysis?.reasoning}</p>
+          </div>
+          <span className={`${newsTier} px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap ml-4`}>
+            {newsEmoji} {analysis?.news_analysis?.sentiment ?? "Unknown"}
+          </span>
         </div>
       </div>
 
-      <div className="border rounded-2xl p-5 bg-white shadow-sm mb-6">
-        <h2 className="font-semibold text-gray-800 mb-1">Key ratios vs. general benchmarks</h2>
+      <div className="card p-5 mb-6">
+        <h2 className="font-semibold text-gray-800 mb-1">📋 Key ratios vs. general benchmarks</h2>
         <p className="text-xs text-gray-400 mb-3">
           Sourced from BharatStock. Ratio formulas vary by provider (e.g. ROCE definitions differ), so figures may not exactly match other platforms — treat as directional, and cross-check anything decision-critical.
         </p>
@@ -175,12 +193,18 @@ export default function StockView({ symbol, initialData }) {
               const value = raw[b.key];
               const good = b.isGood(value);
               return (
-                <tr key={b.key} className="border-b last:border-0">
-                  <td className="py-2 text-gray-700">{b.label}</td>
-                  <td className="py-2 font-medium">{value != null ? value.toLocaleString() : "-"}</td>
-                  <td className="py-2 text-gray-500">{b.acceptable}</td>
-                  <td className="py-2">
-                    {value == null ? <span className="text-gray-300">-</span> : good ? <span className="text-green-600">✓ Good</span> : <span className="text-amber-600">⚠ Watch</span>}
+                <tr key={b.key} className={`border-b last:border-0 transition ${value == null ? "" : good ? "hover:bg-green-50" : "hover:bg-amber-50"}`}>
+                  <td className="py-2.5 text-gray-700">{b.label}</td>
+                  <td className="py-2.5 font-bold">{value != null ? value.toLocaleString() : "-"}</td>
+                  <td className="py-2.5 text-gray-500">{b.acceptable}</td>
+                  <td className="py-2.5">
+                    {value == null ? (
+                      <span className="text-gray-300">-</span>
+                    ) : good ? (
+                      <span className="positive-pill px-2.5 py-1 rounded-full text-xs font-semibold">✓ Good</span>
+                    ) : (
+                      <span className="negative-pill px-2.5 py-1 rounded-full text-xs font-semibold">⚠ Watch</span>
+                    )}
                   </td>
                 </tr>
               );
@@ -199,15 +223,15 @@ export default function StockView({ symbol, initialData }) {
       </div>
 
       {raw.rsi != null && (
-        <div className="border rounded-2xl p-5 bg-white shadow-sm mb-6 flex justify-center">
+        <div className="card p-5 mb-6 flex justify-center">
           <RsiGauge rsi={raw.rsi} />
         </div>
       )}
 
       <div className="grid md:grid-cols-2 gap-4 mb-6">
         {holdingsData.length > 0 && (
-          <div className="border rounded-2xl p-5 bg-white shadow-sm">
-            <h2 className="font-semibold text-gray-800 mb-3">Shareholding pattern</h2>
+          <div className="card p-5">
+            <h2 className="font-semibold text-gray-800 mb-3">🥧 Shareholding pattern</h2>
             <ResponsiveContainer width="100%" height={240}>
               <PieChart>
                 <Pie data={holdingsData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={(d) => `${d.name} ${d.value}%`}>
@@ -221,15 +245,15 @@ export default function StockView({ symbol, initialData }) {
         )}
 
         {returnsData.length > 0 && (
-          <div className="border rounded-2xl p-5 bg-white shadow-sm">
-            <h2 className="font-semibold text-gray-800 mb-3">Price returns by period (%)</h2>
+          <div className="card p-5">
+            <h2 className="font-semibold text-gray-800 mb-3">📈 Price returns by period (%)</h2>
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={returnsData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="period" />
                 <YAxis />
                 <Tooltip />
-                <Bar dataKey="value">
+                <Bar dataKey="value" radius={[6, 6, 0, 0]}>
                   {returnsData.map((d, i) => <Cell key={i} fill={d.value >= 0 ? "#16a34a" : "#dc2626"} />)}
                 </Bar>
               </BarChart>
@@ -239,16 +263,28 @@ export default function StockView({ symbol, initialData }) {
       </div>
 
       {(ma50 || ma200 || raw.high_52w || raw.low_52w) && (
-        <div className="border rounded-2xl p-5 bg-white shadow-sm mb-6">
-          <h2 className="font-semibold text-gray-800 mb-1">Technical reference levels</h2>
+        <div className="card p-5 mb-6">
+          <h2 className="font-semibold text-gray-800 mb-1">🎯 Technical reference levels</h2>
           <p className="text-xs text-gray-400 mb-3">
             Computed from moving averages and the 52-week range. Informational reference points only — not a buy/sell recommendation.
           </p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div><p className="text-gray-400">52-week low</p><p className="font-semibold">₹{raw.low_52w?.toLocaleString() ?? "-"}</p></div>
-            <div><p className="text-gray-400">~200-day average</p><p className="font-semibold">₹{ma200 ? ma200.toFixed(2) : "-"}</p></div>
-            <div><p className="text-gray-400">~50-day average</p><p className="font-semibold">₹{ma50 ? ma50.toFixed(2) : "-"}</p></div>
-            <div><p className="text-gray-400">52-week high</p><p className="font-semibold">₹{raw.high_52w?.toLocaleString() ?? "-"}</p></div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+            <div className="negative-pill rounded-xl p-3 text-center">
+              <p className="opacity-70 text-xs">52-week low</p>
+              <p className="font-bold text-lg">₹{raw.low_52w?.toLocaleString() ?? "-"}</p>
+            </div>
+            <div className="bg-amber-50 text-amber-700 rounded-xl p-3 text-center">
+              <p className="opacity-70 text-xs">~200-day avg</p>
+              <p className="font-bold text-lg">₹{ma200 ? ma200.toFixed(2) : "-"}</p>
+            </div>
+            <div className="bg-sky-50 text-sky-700 rounded-xl p-3 text-center">
+              <p className="opacity-70 text-xs">~50-day avg</p>
+              <p className="font-bold text-lg">₹{ma50 ? ma50.toFixed(2) : "-"}</p>
+            </div>
+            <div className="positive-pill rounded-xl p-3 text-center">
+              <p className="opacity-70 text-xs">52-week high</p>
+              <p className="font-bold text-lg">₹{raw.high_52w?.toLocaleString() ?? "-"}</p>
+            </div>
           </div>
           <p className="text-xs text-gray-400 mt-3">
             Zones near the 52-week low and 200-day average are sometimes watched as potential support; zones near the 50-day average and 52-week high as potential resistance. General technical context, not personalized advice.
