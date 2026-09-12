@@ -1,6 +1,9 @@
 // A local list of NSE stock symbols for search autocomplete - no API
 // calls needed, works instantly as the user types.
 export const stockList = [
+  // Note: each entry below also needs a "sector" field added - see the
+  // sectorizedStockList export at the bottom of this file, which is
+  // generated automatically from this same data plus a lookup table.
   // IT
   { symbol: "TCS", name: "Tata Consultancy Services" },
   { symbol: "INFY", name: "Infosys" },
@@ -280,3 +283,36 @@ export const stockList = [
   { symbol: "E2E", name: "E2E Networks" },
   { symbol: "TATATECH", name: "Tata Technologies" },
 ];
+// Sector grouping for the "browse by sector" feature. Maps each symbol
+// to a sector name - built separately from stockList above so we didn't
+// have to rewrite every existing entry.
+const SECTOR_MAP = {
+  "Information Technology": ["TCS","INFY","HCLTECH","WIPRO","TECHM","LTIM","LTM","PERSISTENT","COFORGE","MPHASIS","LTTS","OFSS","TATATECH","TATAELXSI","HEXT","KPITTECH","ZENSARTECH","BSOFT","SONATSOFTW","NEWGEN","INTELLECT","MASTEK","CYIENT","HAPPSTMNDS","LATENTVIEW","TANLA","RATEGAIN","EMUDHRA","DATAMATICS"],
+  "Banking": ["HDFCBANK","ICICIBANK","SBIN","KOTAKBANK","AXISBANK","INDUSINDBK","PNB","BANKBARODA","CANBK","UNIONBANK","IDFCFIRSTB","FEDERALBNK","BANDHANBNK","AUBANK","YESBANK","RBLBANK","INDIANB","MAHABANK"],
+  "Financial Services": ["BAJFINANCE","BAJAJFINSV","SBILIFE","HDFCLIFE","ICICIPRULI","ICICIGI","SHRIRAMFIN","CHOLAFIN","MUTHOOTFIN","PFC","RECLTD","LICHSGFIN","SBICARD","PAISALO","LICI","HDFCAMC","IEX","MCX","BSE","ANGELONE","CDSL"],
+  "Oil, Gas & Energy": ["RELIANCE","ONGC","IOC","BPCL","HINDPETRO","GAIL","OIL","PETRONET","IGL","MGL","GUJGASLTD"],
+  "Power & Utilities": ["NTPC","POWERGRID","TATAPOWER","ADANIPOWER","ADANIENSOL","NHPC","SJVN","JSWENERGY","TORNTPOWER","CESC"],
+  "Metals & Mining": ["TATASTEEL","JSWSTEEL","HINDALCO","VEDL","COALINDIA","SAIL","NMDC","JINDALSTEL","NATIONALUM","HINDZINC","APLAPOLLO"],
+  "Cement & Construction": ["ULTRACEMCO","AMBUJACEM","ACC","SHREECEM","DALBHARAT","JKCEMENT","RAMCOCEM"],
+  "Infrastructure & Capital Goods": ["LT","ADANIPORTS","ADANIENT","SIEMENS","ABB","CUMMINSIND","BEL","HAL","BHEL","GRSE","COCHINSHIP","IRCON","RVNL","IRFC","CONCOR"],
+  "Automobile": ["MARUTI","TATAMOTORS","M&M","BAJAJ-AUTO","EICHERMOT","HEROMOTOCO","TVSMOTOR","ASHOKLEY","BALKRISIND","MRF","APOLLOTYRE","CEATLTD","BOSCHLTD","MOTHERSON","EXIDEIND","TIINDIA"],
+  "Pharma & Healthcare": ["SUNPHARMA","DRREDDY","CIPLA","DIVISLAB","APOLLOHOSP","LUPIN","AUROPHARMA","TORNTPHARM","ZYDUSLIFE","ALKEM","MANKIND","BIOCON","GLENMARK","IPCALAB","LAURUSLABS","GRANULES","FORTIS","MAXHEALTH","METROPOLIS","LALPATHLAB"],
+  "FMCG": ["HINDUNILVR","ITC","NESTLEIND","BRITANNIA","DABUR","GODREJCP","MARICO","COLPAL","TATACONSUM","VBL","UBL","UNITDSPR","EMAMILTD","PGHH","PATANJALI"],
+  "Retail & Consumer Durables": ["TITAN","DMART","TRENT","ASIANPAINT","BERGEPAINT","PIDILITIND","HAVELLS","VOLTAS","WHIRLPOOL","BLUESTARCO","CROMPTON","KAJARIACER","RELAXO","BATAINDIA","PAGEIND","ABFRL","VMART"],
+  "Telecom": ["BHARTIARTL","IDEA","INDUSTOWER"],
+  "New-age Tech & Internet": ["ZOMATO","NYKAA","PAYTM","POLICYBZR","IRCTC","DELHIVERY","MAPMYINDIA","SHIPROCKET","IKS","NETWEB","AFFLE","E2E"],
+  "Chemicals": ["PIIND","SRF","UPL","AARTIIND","DEEPAKNTR","NAVINFLUOR","ATUL","TATACHEM","GNFC","COROMANDEL"],
+  "Real Estate": ["DLF","GODREJPROP","OBEROIRLTY","PRESTIGE","PHOENIXLTD","LODHA"],
+  "Media & Entertainment": ["ZEEL","SUNTV","PVRINOX","NAZARA"],
+  "Textiles": ["GRASIM","TRIDENT","RAYMOND","WELSPUNLIV"],
+  "Aviation & Others": ["INDIGO","SPICEJET","GMRAIRPORT","JUBLFOOD","DEVYANI","SAPPHIRE"],
+};
+
+export const sectorNames = Object.keys(SECTOR_MAP);
+
+export function getStocksBySector(sector) {
+  const symbols = SECTOR_MAP[sector] || [];
+  return symbols
+    .map((symbol) => stockList.find((s) => s.symbol === symbol))
+    .filter(Boolean);
+}
