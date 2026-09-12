@@ -154,12 +154,21 @@ export default function StockView({ symbol, initialData }) {
       </p>
 
       {analysis?.verdict?.summary && (
-        <div className="rounded-2xl p-5 mb-6 bg-gradient-to-r from-indigo-500 to-sky-500 text-white shadow-lg pop-in">
-          <h2 className="font-semibold mb-1 flex items-center gap-2">💡 Overview</h2>
-          <p className="text-sm text-white/90">{analysis.verdict.summary}</p>
+        <div
+          className="rounded-2xl p-5 mb-6 shadow-lg pop-in"
+          style={{
+            background: "linear-gradient(90deg, #6366f1, #0ea5e9)",
+            color: "#ffffff",
+          }}
+        >
+          <h2 className="font-semibold mb-1 flex items-center gap-2" style={{ color: "#ffffff" }}>
+            💡 Overview
+          </h2>
+          <p className="text-sm" style={{ color: "rgba(255,255,255,0.92)" }}>
+            {analysis.verdict.summary}
+          </p>
         </div>
       )}
-
       <div className="grid gap-4 mb-6">
         <ScoreBadge title="Investment score" score={score?.investment_score} analysis={analysis?.investment_analysis} icon="🏛️" />
         <ScoreBadge title="Trading score" score={score?.trading_score} analysis={analysis?.trading_analysis} icon="📊" />
