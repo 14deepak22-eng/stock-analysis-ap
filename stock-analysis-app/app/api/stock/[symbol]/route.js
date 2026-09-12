@@ -91,7 +91,10 @@ export async function GET(request, { params }) {
       trading_score: tradingScore,
       overall_score: computeOverallScore(investmentScore, tradingScore),
     };
-    await supabase.from("stock_scores").insert(scoreRow);
+        const { error: scoreInsertError } = await supabase.from("stock_scores").insert(scoreRow);
+    if (scoreInsertError) {
+      console.log("STOCK_SCORES INSERT FAILED:", JSON.stringify(scoreInsertError));
+    }
 
     // These three AI/news calls are all independent - run them together
     // instead of one after another. This is the biggest time saver.
@@ -120,7 +123,10 @@ export async function GET(request, { params }) {
       verdict,
       raw_metrics: { ...fundamentals, ...signals, price_history: priceHistory },
     };
-    await supabase.from("stock_analysis").insert(analysisRow);
+       const { error: analysisInsertError } = await supabase.from("stock_analysis").insert(analysisRow);
+    if (analysisInsertError) {
+      console.log("STOCK_ANALYSIS INSERT FAILED:", JSON.stringify(analysisInsertError));
+    }
 
     return NextResponse.json({ score: scoreRow, analysis: analysisRow, cached: false });
   } catch (err) {
