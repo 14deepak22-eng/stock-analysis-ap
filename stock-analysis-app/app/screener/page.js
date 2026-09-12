@@ -26,80 +26,85 @@ export default function Screener() {
 
   return (
     <div>
-      <h1 className="text-xl font-medium mb-4">Screener</h1>
+      <h1 className="text-2xl font-bold mb-6 bg-gradient-to-r from-indigo-600 to-sky-500 bg-clip-text text-transparent">
+        Screener
+      </h1>
 
-      <div className="flex flex-wrap gap-4 items-end mb-6 bg-white border rounded-xl p-4">
-        <label className="text-sm">
-          Min investment score
-          <input
-            type="number"
-            value={minInvestment}
-            onChange={(e) => setMinInvestment(e.target.value)}
-            className="block border rounded px-2 py-1 w-24 mt-1"
-          />
-        </label>
-        <label className="text-sm">
-          Min trading score
-          <input
-            type="number"
-            value={minTrading}
-            onChange={(e) => setMinTrading(e.target.value)}
-            className="block border rounded px-2 py-1 w-24 mt-1"
-          />
-        </label>
-        <label className="text-sm">
-          Sort by
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value)}
-            className="block border rounded px-2 py-1 mt-1"
-          >
-            <option value="investment">Investment score</option>
-            <option value="trading">Trading score</option>
-          </select>
-        </label>
-        <button
-          onClick={runScreen}
-          className="bg-black text-white px-4 py-2 rounded-lg text-sm"
-        >
-          Apply
-        </button>
+      <div className="card p-5 mb-6">
+        <div className="flex flex-wrap gap-5 items-end">
+          <label className="text-sm text-gray-600">
+            Min investment score
+            <input
+              type="number"
+              value={minInvestment}
+              onChange={(e) => setMinInvestment(e.target.value)}
+              className="block border rounded-lg px-3 py-2 w-28 mt-1 focus:border-indigo-400 outline-none"
+            />
+          </label>
+          <label className="text-sm text-gray-600">
+            Min trading score
+            <input
+              type="number"
+              value={minTrading}
+              onChange={(e) => setMinTrading(e.target.value)}
+              className="block border rounded-lg px-3 py-2 w-28 mt-1 focus:border-indigo-400 outline-none"
+            />
+          </label>
+          <label className="text-sm text-gray-600">
+            Sort by
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value)}
+              className="block border rounded-lg px-3 py-2 mt-1 focus:border-indigo-400 outline-none"
+            >
+              <option value="investment">Investment score</option>
+              <option value="trading">Trading score</option>
+            </select>
+          </label>
+          <button onClick={runScreen} className="btn-primary px-5 py-2 rounded-lg text-sm">
+            Apply
+          </button>
+        </div>
       </div>
 
       {loading ? (
-        <p className="text-gray-400 text-sm">Loading...</p>
+        <div className="flex justify-center mt-10">
+          <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+        </div>
       ) : (
-        <table className="w-full text-sm bg-white border rounded-xl overflow-hidden">
-          <thead className="bg-gray-100 text-left">
-            <tr>
-              <th className="p-3">Symbol</th>
-              <th className="p-3">Company</th>
-              <th className="p-3">Investment score</th>
-              <th className="p-3">Trading score</th>
-            </tr>
-          </thead>
-          <tbody>
-            {stocks.map((s) => (
-              <tr key={s.symbol} className="border-t">
-                <td className="p-3">
-                  <a href={`/stock/${s.symbol}`} className="underline">
-                    {s.symbol}
-                  </a>
-                </td>
-                <td className="p-3">{s.stocks?.company_name}</td>
-                <td className="p-3">{s.investment_score}</td>
-                <td className="p-3">{s.trading_score}</td>
-              </tr>
-            ))}
-            {stocks.length === 0 && (
+        <div className="card overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 text-left text-gray-500">
               <tr>
-                <td colSpan={4} className="p-3 text-gray-400">
-                  No stocks match these filters yet.
-                </td>
+                <th className="p-3">Symbol</th>
+                <th className="p-3">Company</th>
+                <th className="p-3">Investment</th>
+                <th className="p-3">Trading</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {stocks.map((s) => (
+                <tr key={s.symbol} className="border-t hover:bg-indigo-50/40 transition">
+                  <td className="p-3">
+                    <a href={`/stock/${s.symbol}`} className="font-semibold text-indigo-700 hover:underline">
+                      {s.symbol}
+                    </a>
+                  </td>
+                  <td className="p-3 text-gray-600">{s.stocks?.company_name}</td>
+                  <td className="p-3 font-medium">{s.investment_score}</td>
+                  <td className="p-3 font-medium">{s.trading_score}</td>
+                </tr>
+              ))}
+              {stocks.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="p-6 text-center text-gray-400">
+                    No stocks match these filters yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
