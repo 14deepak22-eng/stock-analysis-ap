@@ -7,10 +7,19 @@ export async function getCurrentUser() {
 
 export async function addToUserDashboard(symbol) {
   const user = await getCurrentUser();
-  if (!user) return;
-  await supabase
+  if (!user) {
+    console.log("addToUserDashboard: no logged-in user found");
+    return;
+  }
+  const { error } = await supabase
     .from("user_dashboard_stocks")
     .upsert({ user_id: user.id, symbol }, { onConflict: "user_id,symbol" });
+
+  if (error) {
+    console.log("addToUserDashboard FAILED:", JSON.stringify(error));
+  } else {
+    console.log("addToUserDashboard succeeded for", symbol);
+  }
 }
 
 export async function removeFromUserDashboard(symbol) {
