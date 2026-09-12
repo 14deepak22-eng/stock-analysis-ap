@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { computeInvestmentScore, computeTradingScore, computeOverallScore } from "@/lib/scoring";
-import { explainScore, explainNewsSentiment, explainVerdict } from "@/lib/ai/explain";
+import { explainAll } from "@/lib/ai/explain";
 import { getStockOverview, getSectorPeers } from "@/lib/dataSources/bharatstock";
 import { getHistoricalCandles, getSymbolToken } from "@/lib/dataSources/smartapi";
 import { getRecentHeadlines } from "@/lib/dataSources/news";
@@ -96,31 +96,25 @@ export async function GET(request, { params }) {
       console.log("STOCK_SCORES INSERT FAILED:", JSON.stringify(scoreInsertError));
     }
 
-    // These three AI/news calls are all independent - run them together
-    // instead of one after another. This is the biggest time saver.
-    const [investmentAnalysis, tradingAnalysis, newsAnalysis] = await Promise.all([
-      explainScore(symbol, "Investment", investmentScore, fundamentals),
-      signals ? explainScore(symbol, "Trading", tradingScore, signals) : Promise.resolve(null),
-      getRecentHeadlines(overview.company_name).then((headlines) =>
-        explainNewsSentiment(overview.company_name, headlines)
-      ),
-    ]);
-
-    // Verdict needs the other three results, so it runs last.
-    const verdict = await explainVerdict(
+    // One combined AI call instead of four separate ones - cuts daily
+    // AI quota usage to a quarter of what it was per stock.
+    const headlines = await getRecentHeadlines(overview.company_name);
+    const combined = await explainAll({
       symbol,
       investmentScore,
+      fundamentals,
       tradingScore,
-      newsAnalysis?.sentiment ?? "Unknown"
-    );
+      signals,
+      headlines,
+    });
 
     const analysisRow = {
       symbol,
       analysis_date: today(),
-      investment_analysis: investmentAnalysis,
-      trading_analysis: tradingAnalysis,
-      news_analysis: newsAnalysis,
-      verdict,
+      investment_analysis: combined.investment_analysis,
+      trading_analysis: combined.trading_analysis,
+      news_analysis: combined.news_analysis,
+      verdict: combined.verdict,
       raw_metrics: { ...fundamentals, ...signals, price_history: priceHistory },
     };
        const { error: analysisInsertError } = await supabase.from("stock_analysis").insert(analysisRow);
