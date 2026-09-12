@@ -3,6 +3,37 @@
 @tailwind utilities;
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-4px); }
+  from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+body {
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+.card {
+  background: white;
+  border-radius: 1rem;
+  border: 1px solid #f1f5f9;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  transition: all 0.15s ease;
+}
+
+.card-hover:hover {
+  box-shadow: 0 8px 20px rgba(79,70,229,0.08);
+  transform: translateY(-2px);
+  border-color: #e0e7ff;
+}
+
+.btn-primary {
+  background: linear-gradient(90deg, #4f46e5, #0ea5e9);
+  color: white;
+  font-weight: 500;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+}
+.btn-primary:hover { opacity: 0.92; }
+.btn-primary:active { transform: scale(0.98); }
+
+.fade-in {
+  animation: fadeIn 0.25s ease-out;
 }
