@@ -1,8 +1,11 @@
 // The AI's jobs in this app:
-//   1. Explain a score that has ALREADY been computed by lib/scoring.js
+//   1. Explain the Investment and Trading scores
 //   2. Read news headlines and summarize sentiment
 //   3. Write a one-paragraph verdict combining all scores
 // It never invents or calculates a score itself.
+//
+// All four outputs are generated in ONE combined AI call instead of four
+// separate ones, to make the most of limited free-tier daily quotas.
 //
 // Reliability strategy: try Gemini first (free tier). If it fails, fall
 // back to Groq (a different free provider) instead of giving up.
@@ -90,82 +93,56 @@ async function callAI(systemPrompt, userPrompt, fallbackShape) {
   return fallbackShape;
 }
 
-const EXPLAIN_SYSTEM_PROMPT = `You are a financial analysis assistant. You will be given
-structured data about a stock's score and underlying metrics. Write a clear,
-balanced explanation of why the stock received this score.
+const COMBINED_SYSTEM_PROMPT = `You are a financial analysis assistant. You will be given
+a stock's Investment score with fundamentals, Trading score with technical
+signals, and recent news headlines. Produce ALL FOUR of the following in
+one response.
 
 Rules:
-- Only reference numbers given in the data. Never invent or estimate a figure.
-- Explain both strengths and weaknesses, even for high-scoring stocks.
-- Never say "buy" or "sell". Use language like "the data suggests" or
-  "this may warrant attention."
-- End with a one-line disclaimer that this is not financial advice.
-- Output ONLY valid JSON, no other text, matching this shape:
-  { "summary": "...", "strengths": ["..."], "concerns": ["..."], "disclaimer": "..." }`;
+- Only reference numbers/headlines actually given. Never invent or estimate a figure.
+- Never say "buy" or "sell". Use language like "the data suggests" or "this may warrant attention".
+- Explain both strengths and weaknesses, even for high-scoring cases.
+- If investment and trading scores disagree, call that out explicitly in the verdict.
+- Output ONLY valid JSON, no other text, matching EXACTLY this shape:
+{
+  "investment_analysis": { "summary": "...", "strengths": ["..."], "concerns": ["..."], "disclaimer": "..." },
+  "trading_analysis": { "summary": "...", "strengths": ["..."], "concerns": ["..."], "disclaimer": "..." } or null if no technical data given,
+  "news_analysis": { "sentiment": "Positive" | "Neutral" | "Negative", "reasoning": "..." },
+  "verdict": { "summary": "2-3 sentence overall takeaway combining all three" }
+}`;
 
-export async function explainScore(symbol, scoreType, score, metrics) {
-  const userPrompt = `Stock: ${symbol}
-Score type: ${scoreType}
-Score: ${score}/100
-
-Key metrics:
-${JSON.stringify(metrics, null, 2)}
-
-Return the JSON now.`;
-
-  return callAI(EXPLAIN_SYSTEM_PROMPT, userPrompt, {
+const FALLBACK_SHAPE = {
+  investment_analysis: {
     summary: "AI explanation temporarily unavailable.",
     strengths: [],
     concerns: [],
     disclaimer: "This is not investment advice.",
-  });
-}
+  },
+  trading_analysis: null,
+  news_analysis: { sentiment: "Neutral", reasoning: "AI explanation temporarily unavailable." },
+  verdict: { summary: "Overview temporarily unavailable." },
+};
 
-const NEWS_SYSTEM_PROMPT = `You read recent news headlines about a company and judge
-overall sentiment. Output ONLY valid JSON, no other text:
-  { "sentiment": "Positive" | "Neutral" | "Negative", "reasoning": "1-2 sentences citing the headline(s)" }`;
-
-export async function explainNewsSentiment(companyName, headlines) {
-  if (!headlines || headlines.length === 0) {
-    return { sentiment: "Neutral", reasoning: "No recent headlines found." };
-  }
-
-  const headlineList = headlines.map((h) => `- ${h.headline}`).join("\n");
-  const userPrompt = `Company: ${companyName}
-
-Recent headlines:
-${headlineList}
-
-Return the JSON now.`;
-
-  return callAI(NEWS_SYSTEM_PROMPT, userPrompt, {
-    sentiment: "Neutral",
-    reasoning: "AI explanation temporarily unavailable.",
-  });
-}
-
-const VERDICT_SYSTEM_PROMPT = `You are a financial analysis assistant. You will be given
-a stock's Investment score, Trading score, and news sentiment, along with
-brief context for each. Write ONE short paragraph (2-3 sentences) that
-synthesizes all three into a single plain-language takeaway.
-
-Rules:
-- Only reference the scores and context given. Never invent numbers.
-- If scores disagree (e.g. strong investment score but weak trading score),
-  explicitly call that out - it's the most useful insight for a reader.
-- Never say "buy" or "sell". Use language like "the data suggests" or
-  "this may warrant attention."
-- Output ONLY valid JSON: { "summary": "..." }`;
-
-export async function explainVerdict(symbol, investmentScore, tradingScore, newsSentiment) {
+/**
+ * Single combined call replacing the previous 4 separate AI calls
+ * (investment explanation, trading explanation, news sentiment, verdict).
+ * Cuts AI usage per stock from 4 calls to 1.
+ */
+export async function explainAll({ symbol, investmentScore, fundamentals, tradingScore, signals, headlines }) {
   const userPrompt = `Stock: ${symbol}
+
 Investment score: ${investmentScore}/100
+Fundamentals:
+${JSON.stringify(fundamentals, null, 2)}
+
 Trading score: ${tradingScore}/100
-News sentiment: ${newsSentiment}
+Technical signals:
+${signals ? JSON.stringify(signals, null, 2) : "Not available"}
+
+Recent news headlines:
+${headlines && headlines.length > 0 ? headlines.map((h) => `- ${h.headline}`).join("\n") : "No recent headlines found."}
 
 Return the JSON now.`;
 
-  return callAI(VERDICT_SYSTEM_PROMPT, userPrompt, {
-    summary: "Overview temporarily unavailable.",
-  });
+  return callAI(COMBINED_SYSTEM_PROMPT, userPrompt, FALLBACK_SHAPE);
 }
