@@ -25,7 +25,7 @@ export default function TradingSignalCard({ pick, livePrice }) {
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div className="flex items-center gap-3">
           <span className="text-lg font-bold text-gray-400">#{pick.rank}</span>
-          <a href={`/stock/${pick.symbol}`} className="text-xl font-bold text-indigo-700 hover:underline">
+          <a href={`/trading/${pick.symbol}`} className="text-xl font-bold text-indigo-700 hover:underline">
             {pick.symbol}
           </a>
         </div>
