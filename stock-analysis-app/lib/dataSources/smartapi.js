@@ -88,6 +88,42 @@ let instrumentCache = null;
  * Looks up the symbol_token for an NSE equity symbol, using Angel One's
  * public instrument master file. Cached in memory after first fetch.
  */
+/**
+ * Returns a batch of NSE equity symbols from Angel One's instrument
+ * master file, starting at `startIndex`, for the daily trading scan.
+ * Filters to plain equity ("-EQ") listings only.
+ */
+export async function getEquityBatch(startIndex, count) {
+  if (!instrumentCache) {
+    // Reuses the same fetch + cache logic as getSymbolToken below.
+    const res = await fetch(
+      "https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json",
+      {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+          "Accept": "application/json,text/plain,*/*",
+        },
+      }
+    );
+    const text = await res.text();
+    if (text.trim().startsWith("<") || text.includes("Access den")) {
+      throw new Error(`Instrument file fetch blocked (status ${res.status})`);
+    }
+    instrumentCache = JSON.parse(text);
+  }
+
+  const equities = instrumentCache.filter(
+    (i) => i.exch_seg === "NSE" && i.symbol?.endsWith("-EQ")
+  );
+
+  const wrappedStart = startIndex % equities.length;
+  const batch = [];
+  for (let i = 0; i < count; i++) {
+    batch.push(equities[(wrappedStart + i) % equities.length]);
+  }
+
+  return { batch, totalCount: equities.length, nextIndex: (wrappedStart + count) % equities.length };
+}
 export async function getSymbolToken(symbol) {
     if (!instrumentCache) {
     const res = await fetch(
