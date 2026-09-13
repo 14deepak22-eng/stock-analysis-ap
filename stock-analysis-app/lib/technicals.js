@@ -18,11 +18,6 @@ export function buildTechnicalSignals(candleData) {
   return { price, ma50, ma200, rsi, macdLine, macdSignal, recentVolume, avgVolume, priceRising };
 }
 
-/**
- * Builds a trimmed daily price series with rolling 50/200-day averages,
- * for the price chart. Keeps only the last ~150 points so the payload
- * stays small.
- */
 export function buildPriceHistory(candleData) {
   const candles = candleData?.data ?? [];
   const closes = candles.map((c) => c[4]);
@@ -96,21 +91,6 @@ export const INTERVAL_OPTIONS = {
   "1day": { apiValue: "ONE_DAY", lookbackDays: 365, label: "1 day" },
 };
 
-export function formatForSmartApi(date) {
-  return date.toISOString().slice(0, 16).replace("T", " ");
-}
-
-// Maps a friendly interval name to Angel One's required parameter and a
-// sensible default lookback window - shorter intervals need much shorter
-// windows, since 1-minute data over months would be enormous.
-export const INTERVAL_OPTIONS = {
-  "1min": { apiValue: "ONE_MINUTE", lookbackDays: 5, label: "1 min" },
-  "5min": { apiValue: "FIVE_MINUTE", lookbackDays: 15, label: "5 min" },
-  "15min": { apiValue: "FIFTEEN_MINUTE", lookbackDays: 30, label: "15 min" },
-  "1hr": { apiValue: "ONE_HOUR", lookbackDays: 90, label: "1 hour" },
-  "1day": { apiValue: "ONE_DAY", lookbackDays: 365, label: "1 day" },
-};
-
 /**
  * Converts raw SmartAPI candle rows into the {date, open, high, low,
  * close, volume} shape the candlestick chart component expects.
@@ -118,7 +98,7 @@ export const INTERVAL_OPTIONS = {
 export function formatCandlesForChart(candleData) {
   const candles = candleData?.data ?? [];
   return candles.map((c) => ({
-    date: c[0], // full timestamp - chart can trim display as needed
+    date: c[0],
     open: c[1],
     high: c[2],
     low: c[3],
