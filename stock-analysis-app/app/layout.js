@@ -15,6 +15,7 @@ export default function RootLayout({ children }) {
             StockScope
           </a>
           <nav className="flex items-center gap-5 text-sm font-medium text-gray-600">
+            <a href="/trading" className="hover:text-indigo-600 transition">Trading</a>
             <a href="/dashboard" className="hover:text-indigo-600 transition">Dashboard</a>
             <a href="/screener" className="hover:text-indigo-600 transition">Screener</a>
             <AuthStatus />
