@@ -9,6 +9,7 @@ import { computeTradingOpportunityScore, computeRiskRewardLevels } from "@/lib/t
 import { explainTradingSignal } from "@/lib/ai/explain";
 
 const BATCH_SIZE = 200;
+const TOP_N = 10;
 const DELAY_MS = 400; // keeps us at ~2.5 req/sec, safely under the 3/sec published limit
 
 function sleep(ms) {
@@ -99,29 +100,20 @@ export async function GET(request) {
     .update({ last_index: nextIndex, updated_at: new Date().toISOString() })
     .eq("id", 1);
 
-  // Rank and take the top 5 by Trading Opportunity Score.
-  const top5 = results.sort((a, b) => b.opportunityScore - a.opportunityScore).slice(0, 5);
+  // Rank and take the top 10 by Trading Opportunity Score - AI is NOT
+  // called here. It only runs later, on-demand, when the user clicks a
+  // specific stock to see its AI analysis (see /api/trading/analyze).
+  const topPicks = results.sort((a, b) => b.opportunityScore - a.opportunityScore).slice(0, TOP_N);
 
   // Clear today's previous picks (in case this cron runs more than once).
   await supabase.from("trading_daily_picks").delete().eq("scan_date", today());
 
   let rank = 1;
-  for (const pick of top5) {
+  for (const pick of topPicks) {
     const riskReward = computeRiskRewardLevels({
       price: pick.price,
       nearestSupport: pick.nearestSupport,
       nearestResistance: pick.nearestResistance,
-    });
-
-    const aiSignal = await explainTradingSignal({
-      symbol: pick.symbol,
-      opportunityScore: pick.opportunityScore,
-      signals: pick.signals,
-      support: pick.support,
-      resistance: pick.resistance,
-      patterns: pick.patterns,
-      backtest: pick.backtest,
-      riskReward,
     });
 
     const { error } = await supabase.from("trading_daily_picks").insert({
@@ -135,7 +127,7 @@ export async function GET(request) {
       detected_patterns: pick.patterns,
       backtest: pick.backtest,
       technicals: pick.signals,
-      ai_signal: { ...aiSignal, riskReward },
+      ai_signal: { riskReward }, // no AI text yet - filled in on-demand later
       price_history: pick.priceHistory,
     });
 
@@ -148,6 +140,6 @@ export async function GET(request) {
   return NextResponse.json({
     scanned: results.length,
     skipped: batch.length - results.length,
-    topPicks: top5.map((p) => ({ symbol: p.symbol, score: p.opportunityScore })),
+    topPicks: topPicks.map((p) => ({ symbol: p.symbol, score: p.opportunityScore })),
   });
 }
