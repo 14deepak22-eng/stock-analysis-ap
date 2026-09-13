@@ -64,16 +64,15 @@ async function smartApiRequest(path, body) {
   return res.json();
 }
 
-export async function getHistoricalCandles(symbolToken, fromDate, toDate) {
+export async function getHistoricalCandles(symbolToken, fromDate, toDate, interval = "ONE_DAY") {
   return smartApiRequest("/rest/secure/angelbroking/historical/v1/getCandleData", {
     exchange: "NSE",
     symboltoken: symbolToken,
-    interval: "ONE_DAY",
+    interval,
     fromdate: fromDate,
     todate: toDate,
   });
 }
-
 export async function getLTP(symbolToken, tradingSymbol) {
   return smartApiRequest("/rest/secure/angelbroking/order/v1/getLtpData", {
     exchange: "NSE",
