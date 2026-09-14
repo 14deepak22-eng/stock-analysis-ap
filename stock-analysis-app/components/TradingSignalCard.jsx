@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from "recharts";
 
 function scoreTier(score) {
@@ -10,6 +10,9 @@ function scoreTier(score) {
 }
 
 export default function TradingSignalCard({ pick, livePrice }) {
+  const [ai, setAi] = useState(pick.ai_signal?.overallRead ? pick.ai_signal : null);
+  const [loadingAi, setLoadingAi] = useState(false);
+
   const tier = scoreTier(pick.trading_opportunity_score);
   const badgeClass = tier === "good" ? "score-badge-good" : tier === "bad" ? "score-badge-bad" : "score-badge-mid";
 
@@ -17,8 +20,22 @@ export default function TradingSignalCard({ pick, livePrice }) {
   const displayPrice = livePrice ?? pick.current_price;
   const priceChangeFromScan = livePrice ? (((livePrice - pick.current_price) / pick.current_price) * 100).toFixed(2) : null;
 
-  const ai = pick.ai_signal || {};
-  const rr = ai.riskReward || {};
+  const rr = pick.ai_signal?.riskReward || {};
+
+  async function handleAnalyze() {
+    setLoadingAi(true);
+    try {
+      const res = await fetch("/api/trading/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol: pick.symbol }),
+      });
+      const data = await res.json();
+      if (data.aiSignal) setAi(data.aiSignal);
+    } finally {
+      setLoadingAi(false);
+    }
+  }
 
   return (
     <div className="card card-hover p-5 pop-in">
@@ -62,15 +79,20 @@ export default function TradingSignalCard({ pick, livePrice }) {
         </ResponsiveContainer>
       )}
 
-      {pick.detected_patterns?.length > 0 && (
-        <div className="flex flex-wrap gap-2 my-3">
-          {pick.detected_patterns.map((p, i) => (
-            <span key={i} className="bg-indigo-50 text-indigo-700 text-xs px-3 py-1 rounded-full font-medium">
-              {p.name}
-            </span>
-          ))}
-        </div>
-      )}
+      <div className="mb-3">
+        <h2 className="font-semibold text-gray-800 mb-1.5 text-sm">🔍 Detected patterns</h2>
+        {pick.detected_patterns?.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {pick.detected_patterns.map((p, i) => (
+              <span key={i} title={p.detail} className="bg-indigo-50 text-indigo-700 text-xs px-3 py-1 rounded-full font-medium cursor-help">
+                {p.name}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-gray-400">No specific pattern detected — this is common and not an error.</p>
+        )}
+      </div>
 
       <div className="grid grid-cols-3 gap-2 my-3 text-center text-sm">
         <div className="negative-pill rounded-xl p-2">
@@ -91,10 +113,21 @@ export default function TradingSignalCard({ pick, livePrice }) {
         <p className="text-xs text-gray-500 mb-2">Risk-reward ratio: <span className="font-semibold">1:{rr.riskRewardRatio}</span></p>
       )}
 
-      <div className="bg-gray-50 rounded-xl p-3 text-sm">
-        <p className="font-medium text-gray-800 mb-1">{ai.overallRead}</p>
-        <p className="text-gray-600 text-xs">{ai.reasoning}</p>
-      </div>
+      {ai ? (
+        <div className="bg-gray-50 rounded-xl p-3 text-sm">
+          <p className="font-medium text-gray-800 mb-1">{ai.overallRead}</p>
+          <p className="text-gray-600 text-xs">{ai.reasoning}</p>
+        </div>
+      ) : (
+        <button
+          onClick={handleAnalyze}
+          disabled={loadingAi}
+          className="w-full text-sm border-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-400 px-4 py-2.5 rounded-xl disabled:opacity-50 flex items-center justify-center gap-2 transition"
+        >
+          {loadingAi && <span className="w-3.5 h-3.5 border-2 border-indigo-300 border-t-indigo-700 rounded-full animate-spin" />}
+          {loadingAi ? "Analyzing…" : "🤖 Get AI analysis"}
+        </button>
+      )}
 
       {pick.backtest?.winRate != null && (
         <p className="text-xs text-gray-400 mt-2">
@@ -102,7 +135,7 @@ export default function TradingSignalCard({ pick, livePrice }) {
         </p>
       )}
 
-      <p className="text-xs text-gray-400 mt-3 italic">{ai.disclaimer}</p>
+      {ai?.disclaimer && <p className="text-xs text-gray-400 mt-3 italic">{ai.disclaimer}</p>}
     </div>
   );
 }
