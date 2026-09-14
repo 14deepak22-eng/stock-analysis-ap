@@ -120,13 +120,24 @@ export default function TradingDetailPage({ params }) {
         )}
       </div>
 
-      {pick?.detected_patterns?.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-6">
-          {pick.detected_patterns.map((p, i) => (
-            <span key={i} className="bg-indigo-50 text-indigo-700 text-xs px-3 py-1.5 rounded-full font-medium">
-              {p.name}
-            </span>
-          ))}
+      {pick && (
+        <div className="mb-6">
+          <h2 className="font-semibold text-gray-800 mb-2 text-sm">🔍 Detected patterns</h2>
+          {pick.detected_patterns?.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {pick.detected_patterns.map((p, i) => (
+                <span
+                  key={i}
+                  title={p.detail}
+                  className="bg-indigo-50 text-indigo-700 text-xs px-3 py-1.5 rounded-full font-medium cursor-help"
+                >
+                  {p.name}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400">No specific pattern detected in the current data — this is common and not an error.</p>
+          )}
         </div>
       )}
 
