@@ -17,6 +17,7 @@ export async function GET() {
   }
 
   if (picks && picks.length > 0) {
+    console.log("TRADING FETCH: returning", picks.length, "picks for today");
     return NextResponse.json({ picks, isToday: true });
   }
 
@@ -25,13 +26,12 @@ export async function GET() {
     .select("*")
     .order("scan_date", { ascending: false })
     .order("rank", { ascending: true })
-    .limit(10);
+    .limit(20);
 
   if (latestError) {
     console.log("TRADING FETCH (latest) FAILED:", JSON.stringify(latestError));
   }
 
-  console.log("TRADING FETCH: today count =", picks?.length ?? 0, ", latest fallback count =", latest?.length ?? 0);
-
+  console.log("TRADING FETCH: today count = 0, returning", latest?.length ?? 0, "from fallback");
   return NextResponse.json({ picks: latest || [], isToday: false });
 }
