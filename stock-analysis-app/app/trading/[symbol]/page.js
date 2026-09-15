@@ -36,15 +36,26 @@ export default function TradingDetailPage({ params }) {
   }, [symbol]);
 
   // Load candles whenever interval changes
+   const [candlesError, setCandlesError] = useState(null);
+
   const loadCandles = useCallback(() => {
     setLoadingCandles(true);
+    setCandlesError(null);
     fetch(`/api/trading/candles?symbol=${symbol}&interval=${interval}`)
       .then((r) => r.json())
       .then((data) => {
-        setCandles(data.candles || []);
+        if (data.error) {
+          setCandlesError(data.error);
+          setCandles([]);
+        } else {
+          setCandles(data.candles || []);
+        }
         setLoadingCandles(false);
       })
-      .catch(() => setLoadingCandles(false));
+      .catch((err) => {
+        setCandlesError(err.message);
+        setLoadingCandles(false);
+      });
   }, [symbol, interval]);
 
   useEffect(() => {
@@ -112,9 +123,16 @@ export default function TradingDetailPage({ params }) {
           <h2 className="font-semibold text-gray-800">📈 Candlestick chart</h2>
           <IntervalSelector selected={interval} onChange={setIntervalKey} disabled={loadingCandles} />
         </div>
-        {loadingCandles ? (
+               {loadingCandles ? (
           <div className="flex justify-center py-16">
             <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+          </div>
+        ) : candlesError ? (
+          <div className="text-center py-12">
+            <p className="text-sm text-red-500 mb-3">Couldn't load chart data: {candlesError}</p>
+            <button onClick={loadCandles} className="btn-primary px-4 py-2 rounded-lg text-sm">
+              Try again
+            </button>
           </div>
         ) : (
           <>
