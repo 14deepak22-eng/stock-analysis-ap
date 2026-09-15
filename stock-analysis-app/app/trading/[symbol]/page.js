@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import CandlestickChart from "@/components/CandlestickChart";
+import RsiPanel from "@/components/RsiPanel";
 import IntervalSelector from "@/components/IntervalSelector";
 import PaperTradeWidget from "@/components/PaperTradeWidget";
 
@@ -116,7 +117,12 @@ export default function TradingDetailPage({ params }) {
             <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
           </div>
         ) : (
-          <CandlestickChart candles={candles} />
+          <>
+            <CandlestickChart candles={candles} support={pick?.support_levels} resistance={pick?.resistance_levels} />
+            <div className="mt-3 border-t pt-3">
+              <RsiPanel candles={candles} />
+            </div>
+          </>
         )}
       </div>
 
