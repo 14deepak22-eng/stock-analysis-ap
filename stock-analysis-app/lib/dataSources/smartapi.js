@@ -45,25 +45,39 @@ async function login() {
   return cachedToken;
 }
 
-async function smartApiRequest(path, body) {
+async function smartApiRequest(path, body, attempt = 1) {
   const token = await login();
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      "X-PrivateKey": process.env.ANGEL_ONE_API_KEY,
-      "X-UserType": "USER",
-      "X-SourceID": "WEB",
-      "X-ClientLocalIP": "127.0.0.1",
-      "X-ClientPublicIP": "127.0.0.1",
-      "X-MACAddress": "00:00:00:00:00:00",
-    },
-    body: JSON.stringify(body),
-  });
-  return res.json();
-}
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000); // fail fast instead of hanging
+
+  try {
+    const res = await fetch(`${BASE_URL}${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        "X-PrivateKey": process.env.ANGEL_ONE_API_KEY,
+        "X-UserType": "USER",
+        "X-SourceID": "WEB",
+        "X-ClientLocalIP": "127.0.0.1",
+        "X-ClientPublicIP": "127.0.0.1",
+        "X-MACAddress": "00:00:00:00:00:00",
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    return res.json();
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (attempt < 2) {
+      // One retry - Angel One occasionally has transient hiccups
+      return smartApiRequest(path, body, attempt + 1);
+    }
+    throw new Error(`Angel One request timed out or failed: ${err.message}`);
+  }
+}
 export async function getHistoricalCandles(symbolToken, fromDate, toDate, interval = "ONE_DAY") {
   return smartApiRequest("/rest/secure/angelbroking/historical/v1/getCandleData", {
     exchange: "NSE",
