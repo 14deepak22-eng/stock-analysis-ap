@@ -27,6 +27,18 @@ function toCandleObjects(rawData) {
   }));
 }
 
+/**
+ * Keeps only candles from the most recent trading session present in the
+ * data, using each candle's date. This guarantees "day open" always means
+ * the actual open of the latest session - whether that's today's live
+ * session or the last completed session when the market is closed -
+ * rather than accidentally spanning multiple days.
+ */
+function filterToLatestSession(candles) {
+  if (!candles || candles.length === 0) return [];
+  const lastDate = candles[candles.length - 1].timestamp?.slice(0, 10);
+  return candles.filter((c) => c.timestamp?.slice(0, 10) === lastDate);
+}
 async function fetchWithRetry(fn, retries = MAX_RETRIES) {
   try {
     return await fn();
@@ -54,6 +66,7 @@ export async function runIntradayRankingJob(jobId) {
     const results = [];
     const now = new Date();
     const dayStart = new Date(now);
+    dayStart.setDate(dayStart.getDate() - 5); // look back up to 5 days to find the last real trading session (handles weekends/holidays)
     dayStart.setHours(0, 0, 0, 0);
 
     const historyStart = new Date(now);
@@ -80,12 +93,12 @@ export async function runIntradayRankingJob(jobId) {
           ),
         ]);
 
-        const candles5min = toCandleObjects(candles5minRaw);
-        const candles15min = toCandleObjects(candles15minRaw);
+               const candles5min = filterToLatestSession(toCandleObjects(candles5minRaw));
+        const candles15min = toCandleObjects(candles15minRaw); // 15-min stays multi-day, used only for volume baseline
 
         if (candles5min.length === 0) {
           await sleep(DELAY_MS);
-          continue; // no data today - market closed or no trades yet
+          continue; // no data available - market closed or no trades yet
         }
 
         // Historical average volume: mean daily volume over the 15-min
