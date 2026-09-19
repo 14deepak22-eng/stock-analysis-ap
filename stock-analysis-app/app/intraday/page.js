@@ -107,12 +107,12 @@ export default function IntradayPage() {
 
       {/* Market status strip */}
       <div className="card p-4 mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-4 text-sm flex-wrap">
+               <div className="flex items-center gap-4 text-sm flex-wrap">
           <span className={`px-3 py-1 rounded-full font-medium ${status?.marketOpen ? "positive-pill" : "neutral-pill"}`}>
             {status?.marketOpen ? "🟢 Market Open" : "⚪ Market Closed"}
           </span>
           <span className="text-gray-500">
-            Last refresh: {status?.lastUpdated ? new Date(status.lastUpdated).toLocaleTimeString() : "never"}
+            Last refresh: {meta?.lastUpdated ? new Date(meta.lastUpdated).toLocaleTimeString() : "never"}
           </span>
           {refreshing && (
             <span className="text-indigo-600 flex items-center gap-1">
@@ -137,9 +137,8 @@ export default function IntradayPage() {
           ["Shortlisted", meta.shortlistedStocks ?? "-"],
           ["Highest score", highestScore],
           ["Bullish", bullishCount],
-          ["Market", status?.marketOpen ? "Open" : "Closed"],
-          ["Updated", status?.lastUpdated ? new Date(status.lastUpdated).toLocaleTimeString() : "-"],
-        ].map(([label, value]) => (
+                   ["Market", status?.marketOpen ? "Open" : "Closed"],
+          ["Updated", meta?.lastUpdated ? new Date(meta.lastUpdated).toLocaleTimeString() : "-"],
           <div key={label} className="card p-3 text-center">
             <p className="text-xs text-gray-400">{label}</p>
             <p className="font-bold text-gray-800">{value}</p>
