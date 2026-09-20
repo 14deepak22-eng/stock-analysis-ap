@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import StockView from "@/components/StockView";
+import BackButton from "@/components/BackButton";
 import { getFullStockData } from "@/lib/dashboard";
-
 export default function StockPage({ params }) {
   const symbol = params.symbol.toUpperCase();
   const [data, setData] = useState(undefined); // undefined = checking, null = need to fetch
@@ -46,5 +46,10 @@ export default function StockPage({ params }) {
     return <p className="text-red-600">Could not load data for {symbol}.</p>;
   }
 
-  return <StockView symbol={symbol} initialData={data} />;
+  return (
+    <>
+      <BackButton />
+      <StockView symbol={symbol} initialData={data} />
+    </>
+  );
 }
