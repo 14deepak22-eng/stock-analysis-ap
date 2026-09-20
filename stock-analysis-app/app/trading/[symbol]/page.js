@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback } from "react";
 import CandlestickChart from "@/components/CandlestickChart";
 import RsiPanel from "@/components/RsiPanel";
 import IntervalSelector from "@/components/IntervalSelector";
+import BackButton from "@/components/BackButton";
 import PaperTradeWidget from "@/components/PaperTradeWidget";
-
+import BackButton from "@/components/BackButton";
 function scoreTier(score) {
   if (score == null) return "mid";
   if (score >= 65) return "good";
@@ -98,8 +99,9 @@ export default function TradingDetailPage({ params }) {
   const rr = pick?.ai_signal?.riskReward;
   const displayPrice = livePrice ?? pick?.current_price;
 
-  return (
+   return (
     <div>
+      <BackButton />
       <div className="flex items-center justify-between mb-1 flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <h1 className="text-3xl font-bold">{symbol}</h1>
