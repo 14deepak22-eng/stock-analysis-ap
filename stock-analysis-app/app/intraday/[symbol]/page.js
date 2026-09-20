@@ -38,29 +38,40 @@ export default function IntradayDetailPage({ params }) {
           {data.score}
         </span>
       </div>
-
-            <div className="card p-5 mb-6">
-        <h2 className="font-semibold text-gray-800 mb-3">Indicators</h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+      <div className="card p-5 mb-6">
+        <h2 className="font-semibold text-gray-800 mb-4">📊 Score breakdown</h2>
+        <div className="space-y-4">
           {[
-            { key: "vwap", label: "VWAP", desc: "Volume-weighted average price today" },
-            { key: "rsi", label: "RSI (14)", desc: "Momentum: >70 overbought, <30 oversold" },
-            { key: "ema9", label: "EMA 9", desc: "Fast moving average" },
-            { key: "ema20", label: "EMA 20", desc: "Slower moving average" },
-            { key: "atr", label: "ATR", desc: "Typical price movement range" },
-            { key: "relativeVolume", label: "Relative Volume", desc: "vs. typical volume (1.0 = normal)" },
-          ].map(({ key, label, desc }) => {
-            const v = data.indicators?.[key];
+            { key: "momentum", label: "🚀 Momentum", max: 25, icon: "🚀" },
+            { key: "volume", label: "📈 Volume", max: 25, icon: "📈" },
+            { key: "volatility", label: "⚡ Volatility", max: 20, icon: "⚡" },
+            { key: "liquidity", label: "💧 Liquidity", max: 20, icon: "💧" },
+            { key: "marketAlignment", label: "🌐 Market alignment", max: 10, icon: "🌐" },
+          ].map(({ key, label, max }) => {
+            const value = data.componentScores?.[key] ?? 0;
+            const pct = Math.round((value / max) * 100);
+            const barColor = pct >= 70 ? "#16a34a" : pct >= 40 ? "#d97706" : "#dc2626";
+
             return (
-              <div key={key} className="bg-gray-50 rounded-xl p-3">
-                <p className="text-gray-700 text-xs font-semibold">{label}</p>
-                <p className="font-bold text-lg">{v ?? <span className="text-gray-300 text-sm font-normal">Not enough data</span>}</p>
-                <p className="text-gray-400 text-xs mt-0.5">{desc}</p>
+              <div key={key}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm font-medium text-gray-700">{label}</span>
+                  <span className="text-sm font-bold" style={{ color: barColor }}>
+                    {value}<span className="text-gray-400 font-normal">/{max}</span>
+                  </span>
+                </div>
+                <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-700 ease-out"
+                    style={{ width: `${pct}%`, backgroundColor: barColor }}
+                  />
+                </div>
               </div>
             );
           })}
         </div>
       </div>
+          
 
            <div className="card p-5 mb-6">
         <h2 className="font-semibold text-gray-800 mb-3">Score breakdown</h2>
