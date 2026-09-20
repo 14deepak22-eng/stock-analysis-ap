@@ -28,7 +28,7 @@ export default function IntradayPage() {
     const params = new URLSearchParams({ minScore: String(minScore), limit: String(limit) });
     if (signalFilter) params.set("signal", signalFilter);
     if (search) params.set("search", search);
-    const res = await fetch(`/api/intraday/stocks?${params.toString()}`);
+    const res = await fetch("/api/intraday/stocks?" + params.toString());
     const data = await res.json();
     setStocks(data.stocks || []);
     setMeta(data);
@@ -53,7 +53,6 @@ export default function IntradayPage() {
       return;
     }
 
-    // Poll status until the background job finishes
     pollRef.current = setInterval(async () => {
       const s = await loadStatus();
       if (!s.processing) {
@@ -84,7 +83,9 @@ export default function IntradayPage() {
       }
       setLoading(false);
     })();
-    return () => clearInterval(pollRef.current);
+    return function cleanup() {
+      clearInterval(pollRef.current);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -93,8 +94,19 @@ export default function IntradayPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [minScore, signalFilter, limit, search]);
 
-  const highestScore = stocks[0]?.score ?? "-";
-  const bullishCount = stocks.filter((s) => s.signal?.includes("Bullish")).length;
+  const highestScore = stocks[0] ? stocks[0].score : "-";
+  const bullishCount = stocks.filter(function (s) {
+    return s.signal && s.signal.indexOf("Bullish") !== -1;
+  }).length;
+
+  const summaryCards = [
+    { label: "Scanned", value: meta.totalStocksScanned != null ? meta.totalStocksScanned : "-" },
+    { label: "Shortlisted", value: meta.shortlistedStocks != null ? meta.shortlistedStocks : "-" },
+    { label: "Highest score", value: highestScore },
+    { label: "Bullish", value: bullishCount },
+    { label: "Market", value: status && status.marketOpen ? "Open" : "Closed" },
+    { label: "Updated", value: meta.lastUpdated ? new Date(meta.lastUpdated).toLocaleTimeString() : "-" },
+  ];
 
   return (
     <div>
@@ -105,14 +117,13 @@ export default function IntradayPage() {
         <p className="text-sm text-gray-500 mt-1">AI-powered technical stock rankings for intraday trading.</p>
       </div>
 
-      {/* Market status strip */}
       <div className="card p-4 mb-4 flex flex-wrap items-center justify-between gap-3">
-               <div className="flex items-center gap-4 text-sm flex-wrap">
-          <span className={`px-3 py-1 rounded-full font-medium ${status?.marketOpen ? "positive-pill" : "neutral-pill"}`}>
-            {status?.marketOpen ? "🟢 Market Open" : "⚪ Market Closed"}
+        <div className="flex items-center gap-4 text-sm flex-wrap">
+          <span className={"px-3 py-1 rounded-full font-medium " + (status && status.marketOpen ? "positive-pill" : "neutral-pill")}>
+            {status && status.marketOpen ? "🟢 Market Open" : "⚪ Market Closed"}
           </span>
           <span className="text-gray-500">
-            Last refresh: {meta?.lastUpdated ? new Date(meta.lastUpdated).toLocaleTimeString() : "never"}
+            Last refresh: {meta.lastUpdated ? new Date(meta.lastUpdated).toLocaleTimeString() : "never"}
           </span>
           {refreshing && (
             <span className="text-indigo-600 flex items-center gap-1">
@@ -130,31 +141,25 @@ export default function IntradayPage() {
         </button>
       </div>
 
-      {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
-        {[
-          ["Scanned", meta.totalStocksScanned ?? "-"],
-          ["Shortlisted", meta.shortlistedStocks ?? "-"],
-          ["Highest score", highestScore],
-          ["Bullish", bullishCount],
-                   ["Market", status?.marketOpen ? "Open" : "Closed"],
-          ["Updated", meta?.lastUpdated ? new Date(meta.lastUpdated).toLocaleTimeString() : "-"],
-          <div key={label} className="card p-3 text-center">
-            <p className="text-xs text-gray-400">{label}</p>
-            <p className="font-bold text-gray-800">{value}</p>
-          </div>
-        ))}
+        {summaryCards.map(function (card) {
+          return (
+            <div key={card.label} className="card p-3 text-center">
+              <p className="text-xs text-gray-400">{card.label}</p>
+              <p className="font-bold text-gray-800">{card.value}</p>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Filters */}
       <div className="card p-4 mb-4 flex flex-wrap gap-3 items-end">
         <label className="text-sm text-gray-600">
           Min score
-          <input type="number" value={minScore} onChange={(e) => setMinScore(Number(e.target.value))} className="block border rounded-lg px-3 py-2 w-24 mt-1" />
+          <input type="number" value={minScore} onChange={function (e) { setMinScore(Number(e.target.value)); }} className="block border rounded-lg px-3 py-2 w-24 mt-1" />
         </label>
         <label className="text-sm text-gray-600">
           Signal
-          <select value={signalFilter} onChange={(e) => setSignalFilter(e.target.value)} className="block border rounded-lg px-3 py-2 mt-1">
+          <select value={signalFilter} onChange={function (e) { setSignalFilter(e.target.value); }} className="block border rounded-lg px-3 py-2 mt-1">
             <option value="">All</option>
             <option value="bullish">Bullish</option>
             <option value="neutral">Neutral</option>
@@ -163,19 +168,18 @@ export default function IntradayPage() {
         </label>
         <label className="text-sm text-gray-600">
           Show
-          <select value={limit} onChange={(e) => setLimit(Number(e.target.value))} className="block border rounded-lg px-3 py-2 mt-1">
+          <select value={limit} onChange={function (e) { setLimit(Number(e.target.value)); }} className="block border rounded-lg px-3 py-2 mt-1">
             <option value={10}>Top 10</option>
             <option value={20}>Top 20</option>
             <option value={50}>Top 50</option>
           </select>
         </label>
-        <label className="text-sm text-gray-600 flex-1 min-w-[150px]">
+        <label className="text-sm text-gray-600 flex-1" style={{ minWidth: "150px" }}>
           Search symbol
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="e.g. TCS" className="block border rounded-lg px-3 py-2 mt-1 w-full" />
+          <input value={search} onChange={function (e) { setSearch(e.target.value); }} placeholder="e.g. TCS" className="block border rounded-lg px-3 py-2 mt-1 w-full" />
         </label>
       </div>
 
-      {/* Table */}
       {loading ? (
         <div className="flex justify-center mt-16">
           <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
@@ -197,25 +201,27 @@ export default function IntradayPage() {
               </tr>
             </thead>
             <tbody>
-              {stocks.map((s) => (
-                <tr key={s.symbol} className="border-t hover:bg-indigo-50/40 transition">
-                  <td className="p-3 text-gray-400">{s.rank}</td>
-                  <td className="p-3">
-                    <a href={`/intraday/${s.symbol}`} className="font-semibold text-indigo-700 hover:underline">
-                      {s.symbol}
-                    </a>
-                  </td>
-                  <td className="p-3 font-medium">₹{s.currentPrice?.toLocaleString() ?? "-"}</td>
-                  <td className={`p-3 font-medium ${s.priceChangePercentage >= 0 ? "text-green-600" : "text-red-600"}`}>
-                    {s.priceChangePercentage != null ? `${s.priceChangePercentage >= 0 ? "▲" : "▼"} ${Math.abs(s.priceChangePercentage)}%` : "-"}
-                  </td>
-                  <td className="p-3">
-                    <span className={`${signalColor(s.signal)} text-white px-2.5 py-1 rounded-full text-xs font-bold`}>{s.score}</span>
-                  </td>
-                  <td className="p-3 text-xs text-gray-600">{s.signal}</td>
-                  <td className="p-3 text-xs text-gray-500">{s.volumeStatus}</td>
-                </tr>
-              ))}
+              {stocks.map(function (s) {
+                return (
+                  <tr key={s.symbol} className="border-t hover:bg-indigo-50/40 transition">
+                    <td className="p-3 text-gray-400">{s.rank}</td>
+                    <td className="p-3">
+                      <a href={"/intraday/" + s.symbol} className="font-semibold text-indigo-700 hover:underline">
+                        {s.symbol}
+                      </a>
+                    </td>
+                    <td className="p-3 font-medium">₹{s.currentPrice != null ? s.currentPrice.toLocaleString() : "-"}</td>
+                    <td className={"p-3 font-medium " + (s.priceChangePercentage >= 0 ? "text-green-600" : "text-red-600")}>
+                      {s.priceChangePercentage != null ? (s.priceChangePercentage >= 0 ? "▲ " : "▼ ") + Math.abs(s.priceChangePercentage) + "%" : "-"}
+                    </td>
+                    <td className="p-3">
+                      <span className={signalColor(s.signal) + " text-white px-2.5 py-1 rounded-full text-xs font-bold"}>{s.score}</span>
+                    </td>
+                    <td className="p-3 text-xs text-gray-600">{s.signal}</td>
+                    <td className="p-3 text-xs text-gray-500">{s.volumeStatus}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
