@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import CandlestickChart from "@/components/CandlestickChart";
 import RsiPanel from "@/components/RsiPanel";
 import IntervalSelector from "@/components/IntervalSelector";
-import BackButton from "@/components/BackButton";
 import PaperTradeWidget from "@/components/PaperTradeWidget";
 import BackButton from "@/components/BackButton";
 function scoreTier(score) {
