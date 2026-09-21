@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { stockList } from "@/lib/stockList";
 
 export default function HeaderSearch() {
   const [query, setQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
 
   const suggestions = useMemo(() => {
     if (!query.trim()) return [];
@@ -15,10 +16,19 @@ export default function HeaderSearch() {
     return stockList.filter((s) => s.symbol.startsWith(q)).slice(0, 6);
   }, [query]);
 
+  // Decides which page's detail view to send the search to, based on
+  // where the user currently is - so search stays "in context" rather
+  // than always jumping to the Investment page.
+  function getBasePath() {
+    if (pathname.startsWith("/intraday")) return "/intraday";
+    if (pathname.startsWith("/trading")) return "/trading";
+    return "/stock"; // default: Investment page, used from Dashboard/Screener/Home/etc.
+  }
+
   function goTo(symbol) {
     setQuery("");
     setShowSuggestions(false);
-    router.push(`/stock/${symbol}`);
+    router.push(`${getBasePath()}/${symbol}`);
   }
 
   function handleSubmit(e) {
@@ -27,6 +37,12 @@ export default function HeaderSearch() {
     goTo(query.trim().toUpperCase());
   }
 
+  const placeholderText = pathname.startsWith("/intraday")
+    ? "🔍 Search intraday..."
+    : pathname.startsWith("/trading")
+    ? "🔍 Search swing..."
+    : "🔍 Search stock...";
+
   return (
     <form onSubmit={handleSubmit} className="relative w-48 md:w-64">
       <input
@@ -34,7 +50,7 @@ export default function HeaderSearch() {
         onChange={(e) => { setQuery(e.target.value); setShowSuggestions(true); }}
         onFocus={() => setShowSuggestions(true)}
         onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-        placeholder="🔍 Search stock..."
+        placeholder={placeholderText}
         className="w-full text-sm border border-gray-200 rounded-full px-4 py-1.5 focus:border-indigo-400 outline-none transition"
         autoComplete="off"
       />
