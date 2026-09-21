@@ -8,10 +8,12 @@ export default function CandlestickChart({ candles, support = [], resistance = [
   const [zoomRange, setZoomRange] = useState(null); // [startIdx, endIdx] or null = full
   const [dragStart, setDragStart] = useState(null);
   const [drawMode, setDrawMode] = useState(false);
-  const [lines, setLines] = useState([]); // [{x1,y1,x2,y2}]
+  const [lines, setLines] = useState([]);
   const [pendingLine, setPendingLine] = useState(null);
   const containerRef = useRef(null);
   const svgRef = useRef(null);
+
+  const totalLen = candles ? candles.length : 0;
 
   const visibleCandles = useMemo(() => {
     if (!candles) return [];
@@ -61,29 +63,62 @@ export default function CandlestickChart({ candles, support = [], resistance = [
     };
   }
 
+  function currentRange() {
+    return zoomRange ? [zoomRange[0], zoomRange[1]] : [0, totalLen - 1];
+  }
+
+  // Zoom in/out, keeping the point under the cursor (or center) fixed.
+  function zoomAt(factor, anchorIdx) {
+    const [start, end] = currentRange();
+    const span = end - start;
+    const newSpan = Math.max(5, Math.min(totalLen - 1, Math.round(span * factor)));
+    if (newSpan >= totalLen - 1) {
+      setZoomRange(null);
+      return;
+    }
+    const anchor = anchorIdx != null ? anchorIdx : start + span / 2;
+    const anchorRatio = span > 0 ? (anchor - start) / span : 0.5;
+    let newStart = Math.round(anchor - anchorRatio * newSpan);
+    let newEnd = newStart + newSpan;
+    if (newStart < 0) { newEnd -= newStart; newStart = 0; }
+    if (newEnd > totalLen - 1) { newStart -= newEnd - (totalLen - 1); newEnd = totalLen - 1; }
+    setZoomRange([Math.max(0, newStart), newEnd]);
+  }
+
+  function panBy(direction) {
+    const [start, end] = currentRange();
+    const span = end - start;
+    const shift = Math.max(1, Math.round(span * 0.25)) * direction;
+    let newStart = start + shift;
+    let newEnd = end + shift;
+    if (newStart < 0) { newEnd -= newStart; newStart = 0; }
+    if (newEnd > totalLen - 1) { newStart -= newEnd - (totalLen - 1); newEnd = totalLen - 1; }
+    setZoomRange([Math.max(0, newStart), Math.min(totalLen - 1, newEnd)]);
+  }
+
+  function handleWheel(e) {
+    e.preventDefault();
+    const { x } = getSvgCoords(e);
+    const idxUnderCursor = Math.floor((x - padding.left) / step);
+    const [start] = currentRange();
+    const absoluteIdx = start + Math.max(0, Math.min(visibleCandles.length - 1, idxUnderCursor));
+    zoomAt(e.deltaY < 0 ? 0.8 : 1.25, absoluteIdx);
+  }
+
   function handleMouseMove(e) {
     const { x, y } = getSvgCoords(e);
     const idx = Math.floor((x - padding.left) / step);
     if (idx >= 0 && idx < visibleCandles.length) setHoverIndex(idx);
     setMouseY(y);
-
-    if (dragStart) {
-      setDragStart((prev) => ({ ...prev, currentX: x }));
-    }
-    if (drawMode && pendingLine) {
-      setPendingLine((prev) => ({ ...prev, x2: x, y2: y }));
-    }
+    if (dragStart) setDragStart((prev) => ({ ...prev, currentX: x }));
+    if (drawMode && pendingLine) setPendingLine((prev) => ({ ...prev, x2: x, y2: y }));
   }
 
   function handleMouseDown(e) {
     if (drawMode) {
       const { x, y } = getSvgCoords(e);
-      if (!pendingLine) {
-        setPendingLine({ x1: x, y1: y, x2: x, y2: y });
-      } else {
-        setLines((prev) => [...prev, pendingLine]);
-        setPendingLine(null);
-      }
+      if (!pendingLine) setPendingLine({ x1: x, y1: y, x2: x, y2: y });
+      else { setLines((prev) => [...prev, pendingLine]); setPendingLine(null); }
       return;
     }
     const { x } = getSvgCoords(e);
@@ -95,29 +130,21 @@ export default function CandlestickChart({ candles, support = [], resistance = [
       const { startX, currentX } = dragStart;
       if (Math.abs(currentX - startX) > 15) {
         const startIdx = Math.max(0, Math.floor((Math.min(startX, currentX) - padding.left) / step));
-        const endIdx = Math.min(
-          visibleCandles.length - 1,
-          Math.ceil((Math.max(startX, currentX) - padding.left) / step)
-        );
+        const endIdx = Math.min(visibleCandles.length - 1, Math.ceil((Math.max(startX, currentX) - padding.left) / step));
         const baseOffset = zoomRange ? zoomRange[0] : 0;
-        if (endIdx > startIdx) {
-          setZoomRange([baseOffset + startIdx, baseOffset + endIdx]);
-        }
+        if (endIdx > startIdx) setZoomRange([baseOffset + startIdx, baseOffset + endIdx]);
       }
       setDragStart(null);
     }
   }
 
-  function resetZoom() {
+  function handleDoubleClick() {
     setZoomRange(null);
   }
 
   function toggleFullscreen() {
-    if (!document.fullscreenElement) {
-      containerRef.current?.requestFullscreen?.();
-    } else {
-      document.exitFullscreen?.();
-    }
+    if (!document.fullscreenElement) containerRef.current?.requestFullscreen?.();
+    else document.exitFullscreen?.();
   }
 
   function clearDrawings() {
@@ -131,17 +158,15 @@ export default function CandlestickChart({ candles, support = [], resistance = [
 
   const hovered = hoverIndex != null ? visibleCandles[hoverIndex] : null;
   const hoverPrice = mouseY != null ? yToPrice(mouseY) : null;
+  const isZoomed = !!zoomRange;
 
   return (
     <div ref={containerRef} className="bg-white">
-      {/* Toolbar */}
       <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <button
             onClick={() => setDrawMode((d) => !d)}
-            className={`text-xs px-3 py-1.5 rounded-lg font-medium border transition ${
-              drawMode ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-gray-600 border-gray-200 hover:border-indigo-300"
-            }`}
+            className={`text-xs px-3 py-1.5 rounded-lg font-medium border transition ${drawMode ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-gray-600 border-gray-200 hover:border-indigo-300"}`}
           >
             ✏️ Draw line
           </button>
@@ -151,18 +176,32 @@ export default function CandlestickChart({ candles, support = [], resistance = [
             </button>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          {zoomRange && (
-            <button onClick={resetZoom} className="text-xs px-3 py-1.5 rounded-lg font-medium border bg-white text-gray-600 border-gray-200 hover:border-indigo-300 transition">
+        <div className="flex items-center gap-1">
+          <button onClick={() => panBy(-1)} disabled={!isZoomed} title="Pan left" className="text-xs w-8 h-8 rounded-lg font-medium border bg-white text-gray-600 border-gray-200 hover:border-indigo-300 transition disabled:opacity-30">
+            ◀
+          </button>
+          <button onClick={() => zoomAt(1.4)} title="Zoom out" className="text-xs w-8 h-8 rounded-lg font-medium border bg-white text-gray-600 border-gray-200 hover:border-indigo-300 transition">
+            −
+          </button>
+          <button onClick={() => zoomAt(0.7)} title="Zoom in" className="text-xs w-8 h-8 rounded-lg font-medium border bg-white text-gray-600 border-gray-200 hover:border-indigo-300 transition">
+            +
+          </button>
+          <button onClick={() => panBy(1)} disabled={!isZoomed} title="Pan right" className="text-xs w-8 h-8 rounded-lg font-medium border bg-white text-gray-600 border-gray-200 hover:border-indigo-300 transition disabled:opacity-30">
+            ▶
+          </button>
+          {isZoomed && (
+            <button onClick={() => setZoomRange(null)} className="text-xs px-3 py-1.5 rounded-lg font-medium border bg-white text-gray-600 border-gray-200 hover:border-indigo-300 transition ml-1">
               🔍 Reset zoom
             </button>
           )}
-          <button onClick={toggleFullscreen} className="text-xs px-3 py-1.5 rounded-lg font-medium border bg-white text-gray-600 border-gray-200 hover:border-indigo-300 transition">
+          <button onClick={toggleFullscreen} className="text-xs px-3 py-1.5 rounded-lg font-medium border bg-white text-gray-600 border-gray-200 hover:border-indigo-300 transition ml-1">
             ⛶ Fullscreen
           </button>
         </div>
       </div>
-      <p className="text-xs text-gray-400 mb-2">Drag on the chart to zoom into a range. Toggle "Draw line" then click two points to sketch a trendline.</p>
+      <p className="text-xs text-gray-400 mb-2">
+        Scroll to zoom · drag to select a range · double-click to reset · toggle "Draw line" then click two points for a trendline.
+      </p>
 
       <div className="relative">
         <svg
@@ -174,8 +213,9 @@ export default function CandlestickChart({ candles, support = [], resistance = [
           onMouseDown={handleMouseDown}
           onMouseUp={handleMouseUp}
           onMouseLeave={() => { setHoverIndex(null); setMouseY(null); setDragStart(null); }}
+          onWheel={handleWheel}
+          onDoubleClick={handleDoubleClick}
         >
-          {/* Price gridlines + labels */}
           {[0, 0.25, 0.5, 0.75, 1].map((f) => {
             const price = maxPrice - priceRange * f;
             const y = priceToY(price);
@@ -187,7 +227,6 @@ export default function CandlestickChart({ candles, support = [], resistance = [
             );
           })}
 
-          {/* Support / resistance lines */}
           {support?.slice(0, 2).map((s, i) => (
             <g key={"sup" + i}>
               <line x1={padding.left} y1={priceToY(s.level)} x2={width - padding.right} y2={priceToY(s.level)} stroke="#16a34a" strokeWidth="1.5" strokeDasharray="5 3" />
@@ -201,7 +240,6 @@ export default function CandlestickChart({ candles, support = [], resistance = [
             </g>
           ))}
 
-          {/* Candles + volume */}
           {visibleCandles.map((c, i) => {
             const x = padding.left + i * step + step / 2;
             const isUp = c.close >= c.open;
@@ -212,7 +250,6 @@ export default function CandlestickChart({ candles, support = [], resistance = [
             const yClose = priceToY(c.close);
             const bodyTop = Math.min(yOpen, yClose);
             const bodyHeight = Math.max(1, Math.abs(yClose - yOpen));
-
             return (
               <g key={i}>
                 <line x1={x} y1={yHigh} x2={x} y2={yLow} stroke={color} strokeWidth="1" />
@@ -222,27 +259,13 @@ export default function CandlestickChart({ candles, support = [], resistance = [
             );
           })}
 
-          {/* User-drawn trendlines */}
-          {lines.map((l, i) => (
-            <line key={i} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke="#f59e0b" strokeWidth="2" />
-          ))}
-          {pendingLine && (
-            <line x1={pendingLine.x1} y1={pendingLine.y1} x2={pendingLine.x2} y2={pendingLine.y2} stroke="#f59e0b" strokeWidth="2" strokeDasharray="4 3" />
-          )}
+          {lines.map((l, i) => <line key={i} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke="#f59e0b" strokeWidth="2" />)}
+          {pendingLine && <line x1={pendingLine.x1} y1={pendingLine.y1} x2={pendingLine.x2} y2={pendingLine.y2} stroke="#f59e0b" strokeWidth="2" strokeDasharray="4 3" />}
 
-          {/* Drag-to-zoom selection box */}
           {dragStart && (
-            <rect
-              x={Math.min(dragStart.startX, dragStart.currentX)}
-              y={padding.top}
-              width={Math.abs(dragStart.currentX - dragStart.startX)}
-              height={priceHeight - padding.top}
-              fill="#4f46e5"
-              opacity="0.1"
-            />
+            <rect x={Math.min(dragStart.startX, dragStart.currentX)} y={padding.top} width={Math.abs(dragStart.currentX - dragStart.startX)} height={priceHeight - padding.top} fill="#4f46e5" opacity="0.1" />
           )}
 
-          {/* Crosshair */}
           {hovered && hoverIndex != null && !dragStart && (
             <>
               <line x1={padding.left + hoverIndex * step + step / 2} y1={padding.top} x2={padding.left + hoverIndex * step + step / 2} y2={priceHeight} stroke="#94a3b8" strokeWidth="1" strokeDasharray="3 3" />
