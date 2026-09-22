@@ -15,6 +15,8 @@ export default function IntradayDetailPage({ params }) {
   const [loadingCandles, setLoadingCandles] = useState(true);
   const [candlesError, setCandlesError] = useState(null);
 
+  const [livePrice, setLivePrice] = useState(null);
+
   useEffect(() => {
     fetch("/api/intraday/stocks/" + symbol)
       .then(function (r) { return r.json(); })
@@ -22,6 +24,23 @@ export default function IntradayDetailPage({ params }) {
         setData(d);
         setLoading(false);
       });
+  }, [symbol]);
+
+  // Live price polling - the score/indicators are only as fresh as the
+  // last scan, but the price itself should stay close to real-time.
+  useEffect(() => {
+    async function poll() {
+      try {
+        const res = await fetch("/api/trading/live-prices?symbols=" + symbol);
+        const d = await res.json();
+        setLivePrice(d.prices ? d.prices[symbol] : null);
+      } catch {
+        // keep last known price on failure
+      }
+    }
+    poll();
+    const id = setInterval(poll, 12000);
+    return () => clearInterval(id);
   }, [symbol]);
 
   const loadCandles = useCallback(function () {
@@ -84,8 +103,14 @@ export default function IntradayDetailPage({ params }) {
 
       <div className="card p-5 mb-6 flex items-center justify-between flex-wrap gap-3">
         <div>
-          <p className="text-3xl font-bold">₹{data.currentPrice != null ? data.currentPrice.toLocaleString() : "-"}</p>
+          <p className="text-3xl font-bold flex items-center gap-2">
+            ₹{(livePrice ?? data.currentPrice) != null ? (livePrice ?? data.currentPrice).toLocaleString() : "-"}
+            {livePrice && <span className="text-xs text-green-600 animate-pulse font-normal">● live</span>}
+          </p>
           <p className="text-sm text-gray-500">{data.signal}</p>
+          <p className="text-xs text-gray-400 mt-1">
+            Score based on scan from {data.lastUpdated ? new Date(data.lastUpdated).toLocaleString() : "unknown time"}
+          </p>
         </div>
         <span className="score-badge-good text-white text-2xl font-bold w-16 h-16 rounded-full flex items-center justify-center shadow-lg">
           {data.score}
