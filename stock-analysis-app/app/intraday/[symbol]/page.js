@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
 import CandlestickChart from "@/components/CandlestickChart";
 import RsiPanel from "@/components/RsiPanel";
 import IntervalSelector from "@/components/IntervalSelector";
+import BackButton from "@/components/BackButton";
+import PaperTradeWidget from "@/components/PaperTradeWidget";
 
 export default function IntradayDetailPage({ params }) {
   const symbol = params.symbol.toUpperCase();
@@ -197,6 +198,10 @@ export default function IntradayDetailPage({ params }) {
           <div className="positive-pill rounded-xl p-3"><p className="text-xs opacity-70">Target</p><p className="font-bold">₹{data.riskLevels.target}</p></div>
         </div>
       )}
+
+      <div className="mb-6">
+        <PaperTradeWidget symbol={symbol} livePrice={livePrice} />
+      </div>
 
       <p className="text-xs text-gray-400">{data.riskWarning}</p>
     </div>
