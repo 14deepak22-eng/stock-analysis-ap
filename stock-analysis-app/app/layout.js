@@ -22,6 +22,7 @@ export default function RootLayout({ children }) {
           <nav className="flex items-center gap-5 text-sm font-medium text-gray-600">
             <a href="/intraday" className="hover:text-indigo-600 transition">Intraday</a>
             <a href="/trading" className="hover:text-indigo-600 transition">Swing</a>
+            <a href="/paper-trades" className="hover:text-indigo-600 transition">Paper Trades</a>
             <a href="/dashboard" className="hover:text-indigo-600 transition">Dashboard</a>
             <a href="/screener" className="hover:text-indigo-600 transition">Screener</a>
             <AuthStatus />
