@@ -58,12 +58,92 @@ export function calculateATR(candles, period = 14) {
   return Number(atr.toFixed(2));
 }
 
+// Candle timestamps look like "2026-11-02T09:15:00+05:30" (exchange local
+// time), so the date and the time-of-day can be read straight off the string.
+function dateOf(timestamp) {
+  return timestamp?.slice(0, 10) ?? null;
+}
+
+function minutesOf(timestamp) {
+  const hhmm = timestamp?.slice(11, 16);
+  if (!hhmm) return null;
+  const [h, m] = hhmm.split(":").map(Number);
+  return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null;
+}
+
 /**
- * Relative Volume: today's volume-so-far compared to the average volume
- * for the same time-of-day across recent trading days. A value of 1.5
- * means "50% more volume than typical for this point in the session."
- * Falls back gracefully to a simpler recent-vs-average ratio if
- * historical same-time data isn't available.
+ * Average volume per trading day over the days present in `candles`,
+ * optionally leaving one date out (the day being scored, which is usually
+ * only partly complete).
+ *
+ * The previous version summed the whole window and always divided by 20, but
+ * 20 calendar days only holds ~14 trading days, so the baseline came out about
+ * 30% too low - which inflated relative volume and the liquidity score.
+ */
+export function calculateAvgDailyVolume(candles, excludeDate = null) {
+  const byDate = new Map();
+  for (const c of candles ?? []) {
+    const d = dateOf(c.timestamp);
+    if (!d || d === excludeDate) continue;
+    byDate.set(d, (byDate.get(d) ?? 0) + (c.volume || 0));
+  }
+  if (byDate.size === 0) return null;
+  const total = [...byDate.values()].reduce((a, b) => a + b, 0);
+  return total / byDate.size;
+}
+
+/**
+ * Relative Volume, adjusted for time of day: today's volume so far compared
+ * with what prior days had traded by the SAME point in the session. A value
+ * of 1.5 means "50% more volume than typical for this time of day".
+ *
+ * Comparing volume-so-far with a FULL day's average (what this used to do)
+ * makes every stock look quiet in the morning and busy by the close.
+ *
+ * Both sides are measured up to the same 15-minute boundary so partial
+ * candles don't skew the ratio. Returns null when there isn't enough to
+ * compare (market just opened, or fewer than `minPriorDays` earlier days).
+ */
+export function calculateRelativeVolumeByTimeOfDay(todayCandles5min, candles15min, minPriorDays = 3) {
+  if (!todayCandles5min?.length || !candles15min?.length) return null;
+
+  const last = todayCandles5min[todayCandles5min.length - 1];
+  const todayDate = dateOf(last.timestamp);
+  const lastStart = minutesOf(last.timestamp);
+  const sessionStart = minutesOf(todayCandles5min[0].timestamp);
+  if (lastStart == null || sessionStart == null) return null;
+
+  // The last 5-min candle ends at lastStart + 5; round that down to a 15-min
+  // boundary so both sides are measured over whole 15-minute buckets.
+  const cutoff = Math.floor((lastStart + 5) / 15) * 15;
+  if (cutoff <= sessionStart) return null; // less than one full bucket traded so far
+
+  const todayVolume = todayCandles5min
+    .filter((c) => {
+      const start = minutesOf(c.timestamp);
+      return start != null && start + 5 <= cutoff;
+    })
+    .reduce((sum, c) => sum + (c.volume || 0), 0);
+
+  const volumeByDay = new Map();
+  for (const c of candles15min) {
+    const d = dateOf(c.timestamp);
+    const start = minutesOf(c.timestamp);
+    if (!d || d === todayDate || start == null) continue;
+    if (!volumeByDay.has(d)) volumeByDay.set(d, 0);
+    if (start + 15 <= cutoff) volumeByDay.set(d, volumeByDay.get(d) + (c.volume || 0));
+  }
+
+  if (volumeByDay.size < minPriorDays) return null;
+  const avg = [...volumeByDay.values()].reduce((a, b) => a + b, 0) / volumeByDay.size;
+  if (!avg) return null;
+  return Number((todayVolume / avg).toFixed(2));
+}
+
+/**
+ * Simple ratio of today's volume so far to a FULL-day average. Only
+ * meaningful once the session is over; kept for callers that need it.
+ * Prefer calculateRelativeVolumeByTimeOfDay during the session.
  */
 export function calculateRelativeVolume(todayCandles, historicalAvgVolume) {
   if (!todayCandles || todayCandles.length === 0) return null;
@@ -129,7 +209,7 @@ export function calculateAllIndicators(candles5min, candles15min, historicalAvgV
     ema20: calculateEMA(closes5min, 20),
     rsi: calculateRSI(closes5min, 14),
     atr: calculateATR(candles5min, 14),
-    relativeVolume: calculateRelativeVolume(candles5min, historicalAvgVolume),
+    relativeVolume: calculateRelativeVolumeByTimeOfDay(candles5min, candles15min),
     trend5min: detectPriceStructure(candles5min, 6),
     trend15min: detectPriceStructure(candles15min, 6),
   };

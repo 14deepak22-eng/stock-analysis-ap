@@ -41,7 +41,8 @@ create table if not exists stock_scores (
   symbol text references stocks(symbol),
   score_date date,
   investment_score int,
-  trading_score int
+  trading_score int,
+  overall_score int
 );
 
 create table if not exists stock_news (
@@ -59,7 +60,9 @@ create table if not exists stock_analysis (
   analysis_date date,
   investment_analysis jsonb,
   trading_analysis jsonb,
-  news_analysis jsonb
+  news_analysis jsonb,
+  verdict jsonb,
+  raw_metrics jsonb
 );
 
 create table if not exists user_settings (

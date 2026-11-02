@@ -131,7 +131,8 @@ export default function TradingSignalCard({ pick, livePrice }) {
 
       {pick.backtest?.winRate != null && (
         <p className="text-xs text-gray-400 mt-2">
-          📊 Historical setups like this: {pick.backtest.winRate}% moved higher over the next {pick.backtest.lookaheadDays} days ({pick.backtest.sampleSize} samples)
+          📊 Historical setups like this: {pick.backtest.winRate}% moved higher over the next {pick.backtest.lookaheadDays} days ({pick.backtest.sampleSize} independent samples
+          {pick.backtest.baselineWinRate != null && <>; {pick.backtest.baselineWinRate}% for any day</>})
         </p>
       )}
 

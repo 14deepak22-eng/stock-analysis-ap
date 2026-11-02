@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { getActiveInstruments } from "@/lib/intraday/instrumentService";
 import { getHistoricalCandles } from "@/lib/dataSources/smartapi";
 import { formatForSmartApi } from "@/lib/technicals";
-import { calculateAllIndicators } from "@/lib/intraday/indicatorService";
+import { calculateAllIndicators, calculateAvgDailyVolume } from "@/lib/intraday/indicatorService";
 import { calculateIntradayScore } from "@/lib/intraday/scoringService";
 import { calculateRiskLevels } from "@/lib/intraday/riskLevelsService";
 import { tryAcquireJobLock, completeJob, failJob } from "@/lib/intraday/jobLockService";
@@ -101,10 +101,12 @@ export async function runIntradayRankingJob(jobId) {
           continue; // no data available - market closed or no trades yet
         }
 
-        // Historical average volume: mean daily volume over the 15-min
-        // dataset's span, used as the liquidity/relative-volume baseline.
-        const totalHistoricalVolume = candles15min.reduce((sum, c) => sum + (c.volume || 0), 0);
-        const historicalAvgVolume = candles15min.length > 0 ? totalHistoricalVolume / 20 : null;
+        // Historical average volume: mean volume per trading day over the
+        // earlier days in the 15-min dataset (the day being scored is left
+        // out because it may be only partly complete). Used as the liquidity
+        // baseline; relative volume is computed separately, time-of-day adjusted.
+        const sessionDate = candles5min.at(-1)?.timestamp?.slice(0, 10);
+        const historicalAvgVolume = calculateAvgDailyVolume(candles15min, sessionDate);
 
         const indicators = calculateAllIndicators(candles5min, candles15min, historicalAvgVolume);
         const scoring = calculateIntradayScore(indicators, historicalAvgVolume, null); // market alignment TBD
