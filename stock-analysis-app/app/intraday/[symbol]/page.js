@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import CandlestickChart from "@/components/CandlestickChart";
-import RsiPanel from "@/components/RsiPanel";
 import IntervalSelector from "@/components/IntervalSelector";
+import { useCandles } from "@/lib/useCandles";
 import BackButton from "@/components/BackButton";
 import PaperTradeWidget from "@/components/PaperTradeWidget";
 
@@ -12,10 +12,8 @@ export default function IntradayDetailPage({ params }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const [candles, setCandles] = useState([]);
   const [interval, setIntervalKey] = useState("5min");
-  const [loadingCandles, setLoadingCandles] = useState(true);
-  const [candlesError, setCandlesError] = useState(null);
+  const { candles, loading: loadingCandles, error: candlesError, reload: loadCandles } = useCandles(symbol, interval);
 
   const [livePrice, setLivePrice] = useState(null);
 
@@ -24,6 +22,9 @@ export default function IntradayDetailPage({ params }) {
       .then(function (r) { return r.json(); })
       .then(function (d) {
         setData(d);
+        setLoading(false);
+      })
+      .catch(function () {
         setLoading(false);
       });
   }, [symbol]);
@@ -44,30 +45,6 @@ export default function IntradayDetailPage({ params }) {
     const id = setInterval(poll, 12000);
     return () => clearInterval(id);
   }, [symbol]);
-
-  const loadCandles = useCallback(function () {
-    setLoadingCandles(true);
-    setCandlesError(null);
-    fetch("/api/trading/candles?symbol=" + symbol + "&interval=" + interval)
-      .then(function (r) { return r.json(); })
-      .then(function (d) {
-        if (d.error) {
-          setCandlesError(d.error);
-          setCandles([]);
-        } else {
-          setCandles(d.candles || []);
-        }
-        setLoadingCandles(false);
-      })
-      .catch(function (err) {
-        setCandlesError(err.message);
-        setLoadingCandles(false);
-      });
-  }, [symbol, interval]);
-
-  useEffect(function () {
-    loadCandles();
-  }, [loadCandles]);
 
   if (loading) {
     return (
@@ -121,27 +98,16 @@ export default function IntradayDetailPage({ params }) {
 
       {/* Candlestick chart */}
       <div className="card p-5 mb-6">
-        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-          <h2 className="font-semibold text-gray-800">📈 Candlestick chart</h2>
-          <IntervalSelector selected={interval} onChange={setIntervalKey} disabled={loadingCandles} />
-        </div>
-        {loadingCandles ? (
-          <div className="flex justify-center py-16">
-            <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
-          </div>
-        ) : candlesError ? (
-          <div className="text-center py-12">
-            <p className="text-sm text-red-500 mb-3">Couldn't load chart data: {candlesError}</p>
-            <button onClick={loadCandles} className="btn-primary px-4 py-2 rounded-lg text-sm">Try again</button>
-          </div>
-        ) : (
-          <div>
-            <CandlestickChart candles={candles} />
-            <div className="mt-3 border-t pt-3">
-              <RsiPanel candles={candles} />
-            </div>
-          </div>
-        )}
+        <h2 className="font-semibold text-gray-800 mb-3">📈 Candlestick chart</h2>
+        <CandlestickChart
+          symbol={symbol}
+          candles={candles}
+          interval={interval}
+          loading={loadingCandles}
+          error={candlesError}
+          onRetry={loadCandles}
+          toolbarLeft={<IntervalSelector selected={interval} onChange={setIntervalKey} disabled={loadingCandles} />}
+        />
       </div>
 
       {/* Score breakdown - animated horizontal bars */}
