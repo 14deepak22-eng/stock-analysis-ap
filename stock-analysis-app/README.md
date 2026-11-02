@@ -64,6 +64,11 @@ None of these block you from running the app — they just need a real
 API response in front of you to fine-tune, which is normal for
 first-time integration work.
 
+## Tests and database migration
+
+- `npm test` runs the unit tests for the scoring maths (technical indicators, investment/trading scores, backtest, intraday volume). Needs Node 20.19+ or 22.7+.
+- Run `supabase/migrations/001_fix_pack.sql` once in the Supabase SQL Editor. It adds the `overall_score`, `verdict` and `raw_metrics` columns and the `latest_stock_scores` view the screener uses (the screener still works without it, just slower).
+
 ## Not investment advice
 
 This app shows computed scores and AI-generated explanations for

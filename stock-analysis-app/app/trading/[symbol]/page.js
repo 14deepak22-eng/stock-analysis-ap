@@ -197,7 +197,11 @@ export default function TradingDetailPage({ params }) {
           <h2 className="font-semibold text-gray-800 mb-2">📊 Historical backtest</h2>
           <p className="text-sm text-gray-700">
             {pick.backtest.winRate}% of similar past setups moved higher over the following {pick.backtest.lookaheadDays} days,
-            averaging {pick.backtest.avgReturn}% return, based on {pick.backtest.sampleSize} historical occurrences.
+            averaging {pick.backtest.avgReturn}% return, based on {pick.backtest.sampleSize} independent historical occurrences.
+            {pick.backtest.baselineWinRate != null && (
+              <> For comparison, {pick.backtest.baselineWinRate}% of all {pick.backtest.lookaheadDays}-day windows in this stock&apos;s history moved higher
+              {pick.backtest.edge != null && <> (edge of {pick.backtest.edge > 0 ? "+" : ""}{pick.backtest.edge} percentage points)</>}.</>
+            )}
           </p>
         </div>
       )}

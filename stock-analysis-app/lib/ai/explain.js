@@ -103,6 +103,7 @@ Rules:
 - Never say "buy" or "sell". Use language like "the data suggests" or "this may warrant attention".
 - Explain both strengths and weaknesses, even for high-scoring cases.
 - If investment and trading scores disagree, call that out explicitly in the verdict.
+- If "investment_data_coverage_pct" in the fundamentals is below 70, say plainly that the Investment score rests on incomplete data and should be treated with caution.
 - Output ONLY valid JSON, no other text, matching EXACTLY this shape:
 {
   "investment_analysis": { "summary": "...", "strengths": ["..."], "concerns": ["..."], "disclaimer": "..." },

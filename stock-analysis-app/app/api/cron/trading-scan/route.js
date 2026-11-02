@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { getEquityBatch, getHistoricalCandles } from "@/lib/dataSources/smartapi";
-import { buildTechnicalSignals, formatForSmartApi } from "@/lib/technicals";
+import { buildTechnicalSignals, formatForSmartApi, DAILY_LOOKBACK_DAYS } from "@/lib/technicals";
 import { computeTradingScore } from "@/lib/scoring";
 import { calculateSupportResistance, nearestLevels, detectPatterns } from "@/lib/tradingSignals";
 import { runHistoricalBacktest } from "@/lib/tradingBacktest";
@@ -42,7 +42,7 @@ export async function GET(request) {
     try {
       const toDate = new Date();
       const fromDate = new Date();
-      fromDate.setDate(fromDate.getDate() - 220);
+      fromDate.setDate(fromDate.getDate() - DAILY_LOOKBACK_DAYS); // ~280 sessions, enough for a real 200-day average
 
       const candleData = await getHistoricalCandles(
         instrument.token,
