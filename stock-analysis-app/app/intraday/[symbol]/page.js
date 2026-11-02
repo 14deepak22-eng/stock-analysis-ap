@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect, useCallback } from "react";
 import CandlestickChart from "@/components/CandlestickChart";
 import RsiPanel from "@/components/RsiPanel";
 import IntervalSelector from "@/components/IntervalSelector";
